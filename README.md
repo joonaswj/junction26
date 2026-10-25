@@ -31,10 +31,14 @@ git-workflow:
 //tee muutoksia
 
 3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
+   
    I) git add <muutettu_tiedosto1> <muutettu_tiedosto2> ...
+   
    II) git commit -m  "moromoro"
+   
    III) git push origin <branchin_nimi>
-4) 
+   
+5) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
    
 I) "git pull origin <branchin_nimi>" // hae viimeisin pushattu versio toisen branchista
