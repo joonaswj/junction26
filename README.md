@@ -49,5 +49,8 @@ git-workflow:
 6) Merge main branchiin:
    
    Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä.
-   
+
+7) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata ”git pull origin main”.
+
+Tämän jälkeen iteroidaan vaiheita 2-6.
    
