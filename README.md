@@ -16,7 +16,7 @@ Aloitus:
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
 5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle
-6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento "git clone <ssh-linkki>" tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
+6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento "git clone ssh-linkki" tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
 Workflow yleisesti:
  - Käytetään gittiä versionhallintajärjestelmänä ja koodin jakamisessa keskenämme
@@ -31,20 +31,20 @@ git-workflow:
 
 3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
    
-   I) git add <muutettu_tiedosto1> <muutettu_tiedosto2> ...
+   I) git add muutettu_tiedosto1 muutettu_tiedosto2 ...
    
    II) git commit -m  "moromoro"
    
-   III) git push origin <branchin_nimi>
+   III) git push origin branchin_nimi
    
 5) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
    
-    I) "git pull origin <branchin_nimi>" // hae viimeisin pushattu versio toisen branchista
+    I) "git pull origin branchin_nimi" // hae viimeisin pushattu versio toisen branchista
 
-    II) "git switch <oma_branch> //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
+    II) "git switch oma_branch” //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
 
-    III) "git merge origin <branchin_nimi> // tee merge toisen branchista omaan branchiin
+    III) "git merge origin branchin_nimi” // tee merge toisen branchista omaan branchiin
 
 6) Merge main branchiin:
    
