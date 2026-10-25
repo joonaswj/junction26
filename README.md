@@ -16,7 +16,7 @@ Aloitus:
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
 5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle
-6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento "git clone ssh-linkki" tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
+6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento git clone ssh-linkki tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
 Workflow yleisesti:
  - Käytetään gittiä versionhallintajärjestelmänä ja koodin jakamisessa keskenämme
