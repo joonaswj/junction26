@@ -47,7 +47,8 @@ git-workflow:
 
     III) "git merge origin <branchin_nimi> // tee merge toisen branchista omaan branchiin
 
-6) Merge main branchiin
+6) Merge main branchiin:
+   
    Pidetään huolta, että aina merge main branchiin on yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä.
    
    
