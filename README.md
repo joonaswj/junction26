@@ -26,7 +26,7 @@ Workflow yleisesti:
 
 git-workflow:
 1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
-2) Luo oma branch: "git checkout -b <uusi_branch> main" -> eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
+2) Luo oma branch: git checkout -b uusi_branch main -> eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
 
 3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
@@ -40,11 +40,11 @@ git-workflow:
 5) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
    
-    I) "git pull origin branchin_nimi" // hae viimeisin pushattu versio toisen branchista
+    I) git pull origin branchin_nimi // hae viimeisin pushattu versio toisen branchista
 
-    II) "git switch oma_branch” //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
+    II) git switch oma_branch //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
 
-    III) "git merge origin branchin_nimi” // tee merge toisen branchista omaan branchiin
+    III) git merge origin branchin_nimi // tee merge toisen branchista omaan branchiin
 
 6) Merge main branchiin:
    
