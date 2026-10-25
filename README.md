@@ -35,12 +35,14 @@ git-workflow:
    II) git commit -m  "moromoro"
    III) git push origin <branchin_nimi>
 4) 
-    Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa
-   "git pull origin <branchin_nimi>" // 
-   "git switch <oma_branch> //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
-   "git merge origin <branchin_nimi> // 
-   HUOM! 
+    Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
+   
+I) "git pull origin <branchin_nimi>" // hae viimeisin pushattu versio toisen branchista
 
-Kun
+II) "git switch <oma_branch> //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
+
+III) "git merge origin <branchin_nimi> // tee merge toisen branchista omaan branchiin
+
+
    
    
