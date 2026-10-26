@@ -25,9 +25,9 @@ Workflow yleisesti:
  - Tähän tarvitaan muutama git-komento, jotka käydään läpi seuraavaksi
 
 git-workflow:
-1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
-2) Luo oma branch: git checkout -b uusi_branch main -> eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
+1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
+2) Luo oma branch: git checkout -b uusi_branch main // eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
 3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
    
@@ -44,13 +44,13 @@ git-workflow:
 
     II) git switch oma_branch //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
 
-    III) git merge origin branchin_nimi // tee merge toisen branchista omaan branchiin
+    III) git merge origin branchin_nimi // tee merge toisesta branchista omaan branchiin
 
 6) Merge main branchiin:
    
-   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä.
+   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa.
 
-7) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata
+7) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
  I) ”git switch main”
 
