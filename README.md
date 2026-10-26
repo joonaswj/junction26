@@ -21,7 +21,7 @@ Aloitus:
 Workflow yleisesti:
  - Käytetään gittiä versionhallintajärjestelmänä ja koodin jakamisessa keskenämme
  - Tehdään projektissa vastuualueet projektin eri vaiheille jo suunnitteluvaiheessa
- - Jokainen työstää projektia omalla branchillaan ja kun projektissa on toimiva osakokonaisuus, yhdistetään branchit main-branchiin. -> Tällä tavalla ei synny merge-conflicteja, mitkä voi olla iso ongelma yhteisessä projekteissa, ja sit toisaalta saadaan jaettua koodia nopeasti.
+ - Jokainen työstää projektia omalla branchillaan ja kun projektissa on toimiva osakokonaisuus, yhdistetään branchit main-branchiin.         Ideana on koittaa välttää merge-conflicteja tällasella systeemillä 
  - Tähän tarvitaan muutama git-komento, jotka käydään läpi seuraavaksi
 
 git-workflow:
