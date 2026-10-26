@@ -52,9 +52,9 @@ git-workflow:
 
 7) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata
  
- ”git switch main”
+ I) ”git switch main”
 
- ”git pull origin main”.
+ II)”git pull origin main”
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
    
