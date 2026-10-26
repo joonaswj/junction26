@@ -15,7 +15,7 @@ Aloitus:
 • Linux: Use your distribution's package manager, such as sudo apt install git-all on Ubuntu/Debian or sudo dnf install git-all on Fedora."- Google Search AI
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
-5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle
+5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle: mene repooa -> klikkaa code -> kopioi ssh-linkki
 6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento git clone ssh-linkki tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
 Workflow yleisesti:
