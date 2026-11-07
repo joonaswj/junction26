@@ -58,18 +58,16 @@ git-workflow:
    
 6) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
-   
-    I) git pull origin branchin_nimi // hae viimeisin pushattu versio toisen branchista
 
-    II) git switch oma_branch //tämä sen takia että et vahingossa tee mergeä mihinkään muuhun branchiin
+   I) git switch oma_branch // vaihda omaan brachiin
 
-    III) git merge origin branchin_nimi // tee merge toisesta branchista omaan branchiin
+   II) git pull origin branchin_nimi // hae viimeiset pushatut muutokset toisen branchista ja mergaa ne omaan
 
-7) Merge main branchiin:
+8) Merge main branchiin:
    
    Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa.
 
-8) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
+9) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
     I) ”git switch main”
 
