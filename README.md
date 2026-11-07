@@ -50,11 +50,13 @@ git-workflow:
    
    I) git add muutettu_tiedosto1 muutettu_tiedosto2 ...
    
+   II) git status
+   
    II) git commit -m  "moromoro"
    
    III) git push origin branchin_nimi
    
-5) 
+6) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
    
     I) git pull origin branchin_nimi // hae viimeisin pushattu versio toisen branchista
@@ -63,11 +65,11 @@ git-workflow:
 
     III) git merge origin branchin_nimi // tee merge toisesta branchista omaan branchiin
 
-6) Merge main branchiin:
+7) Merge main branchiin:
    
    Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa.
 
-7) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
+8) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
     I) ”git switch main”
 
