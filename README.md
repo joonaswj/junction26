@@ -75,7 +75,7 @@ git-workflow:
  
     I) git switch main //vaihda mainiin
 
-    II) git pull origin main // pullaa main
+    II) git pull --no-rebase origin main // pullaa main
 
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
