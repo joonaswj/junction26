@@ -65,17 +65,20 @@ git-workflow:
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
 
+GIT Cheat sheet:
+<table> <thead> <tr> <th>Situation</th> <th>Command</th> </tr> </thead> <tbody> <tr> <td>Clone repository (first time only)</td> <td><code>git clone &lt;ssh-link&gt;</code></td> </tr> <tr> <td>Install required Python version</td> <td><code>uv python install</code></td> </tr> <tr> <td>Set up / synchronize environment</td> <td><code>uv sync --locked</code></td> </tr> <tr> <td>Check local changes</td> <td><code>git status</code></td> </tr> <tr> <td>Create new branch</td> <td><code>git switch -c oma_branch main</code></td> </tr> <tr> <td>Stage changes</td> <td><code>git add .</code></td> </tr> <tr> <td>Commit changes</td> <td><code>git commit -m "Description"</code></td> </tr> <tr> <td>Push your branch to GitHub</td> <td><code>git push origin oma_branch</code></td> </tr> <tr> <td>Fetch latest remote changes</td> <td><code>git fetch origin</code></td> </tr> <tr> <td>Switch to your own branch</td> <td><code>git switch oma_branch</code></td> </tr> <tr> <td>Merge another remote branch into yours</td> <td><code>git merge origin/toinen_branch</code></td> </tr> <tr> <td>Switch to main</td> <td><code>git switch main</code></td> </tr> <tr> <td>Update main from GitHub</td> <td><code>git pull origin main</code></td> </tr> <tr> <td>Add a new Python library</td> <td><code>uv add library_name</code></td> </tr> <tr> <td>Remove a Python library</td> <td><code>uv remove library_name</code></td> </tr> </tbody> </table>
 
 Ohjeet koodin testaukseen:
 
 - Kun teet funktioita tai luokkia pythonissa ja haluat testata niitä, kirjoita testi-koodi seuraavasti tiedoston loppuun:
   
-  if "__name___" == "__main__":
+  if __name___ == "__main__":
 
       testaa(funktio1())
 
   Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa     käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
-  
+
+
       
 
 
