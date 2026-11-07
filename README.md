@@ -44,7 +44,7 @@ git-workflow:
 
 2) Luo oma branch:
 
-   git checkout -b uusi_branch main // eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
+   git checkout -b uusi_branch main // tietyssä brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
 4) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
    
