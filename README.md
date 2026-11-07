@@ -24,7 +24,7 @@ Aloitus:
 
    Windows powershellissä: "irm https://astral.sh/uv/install.ps1 | iex"
 
-   Linux terminaalissa "curl -LsSf https://astral.sh/uv/install.sh | sh"
+   Linux terminaalissa: "curl -LsSf https://astral.sh/uv/install.sh | sh"
 
 9) lataa python virtuaaliympäristöön
    
