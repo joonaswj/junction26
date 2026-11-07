@@ -75,10 +75,6 @@ git-workflow:
 
     II) git pull origin main // pullaa main
 
-    III) git switch oma_branch // vaihda omaan branhciin
-   
-    IV) git merge main // mergaa maini omaan branchiin
-
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
 
