@@ -9,6 +9,8 @@ Aloitus:
 2) lataa GIT:
     
 How to Install by Operating System
+[GIT install:] (https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://git-scm.com/install/&ved=2ahUKEwiir7axrfaXAxW_JxAIHSBJIksQFnoECBEQAQ&usg=AOvVaw1piXI91x_chH4u0QiwVJRs)
+
 
 • Windows: Go to Git for Windows to download the standalone installer for x64 or ARM64, or use package managers via winget install --id Git.Git -e --source winget.
 
