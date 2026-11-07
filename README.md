@@ -21,7 +21,7 @@ Aloitus:
     Windows powershellissä: "irm https://astral.sh/uv/install.ps1 | iex"
     Linux terminaalissa "curl -LsSf https://astral.sh/uv/install.sh | sh"
 
-8) Python-ympäristön saat alustettua ajamalla "uv sync --locked" 
+8) Python-ympäristön saat alustettua ja jatkossa pidettyä ajantasalla (jos lisätään uusia kirjastoja)         ajamalla "uv sync --locked" 
 
 Workflow yleisesti:
  - Käytetään gittiä versionhallintajärjestelmänä ja koodin jakamisessa keskenämme
