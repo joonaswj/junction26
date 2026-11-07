@@ -42,9 +42,11 @@ git-workflow:
 
 1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
 
-2) Luo oma branch: git checkout -b uusi_branch main // eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
+2) Luo oma branch:
 
-3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
+   git checkout -b uusi_branch main // eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
+
+4) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
    
    I) git add muutettu_tiedosto1 muutettu_tiedosto2 ...
    
