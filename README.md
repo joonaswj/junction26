@@ -63,9 +63,7 @@ git-workflow:
 
    I) git switch oma_branch // vaihda omaan brachiin
 
-   II) git switch oma_branch
-
-   III) git pull --no-rebase origin haluttu_branch // hae viimeiset pushatut muutokset toisen branchista ja mergaa ne omaan
+   II) git pull --no-rebase origin haluttu_branch // hae viimeiset pushatut muutokset toisen branchista ja mergaa ne omaan
 
 8) Merge main branchiin:
    
