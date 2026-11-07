@@ -86,8 +86,8 @@ Ohjeet koodin testaukseen:
 
 - Kun teet funktioita tai luokkia pythonissa ja haluat testata niitä, kirjoita testi-koodi seuraavasti tiedoston loppuun:
   
-  "if __name__ == "__main__":
-      testaa(funktio1())"
+  'if __name__ == "__main__":
+      testaa(funktio1())'
 
   Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa     käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
 
