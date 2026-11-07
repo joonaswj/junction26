@@ -8,15 +8,8 @@ Aloitus:
 1) Avaa pääte laitteessasi.
 2) lataa GIT:
     
-How to Install by Operating System
-[GIT install:] (https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://git-scm.com/install/&ved=2ahUKEwiir7axrfaXAxW_JxAIHSBJIksQFnoECBEQAQ&usg=AOvVaw1piXI91x_chH4u0QiwVJRs)
+[GIT asennus] (https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://git-scm.com/install/&ved=2ahUKEwiir7axrfaXAxW_JxAIHSBJIksQFnoECBEQAQ&usg=AOvVaw1piXI91x_chH4u0QiwVJRs)
 
-
-• Windows: Go to Git for Windows to download the standalone installer for x64 or ARM64, or use package managers via winget install --id Git.Git -e --source winget.
-
-• macOS: Install via Homebrew using brew install git, via MacPorts with sudo port install git, or through Xcode Command Line Tools (xcode-select --install).
-
-• Linux: Use your distribution's package manager, such as sudo apt install git-all on Ubuntu/Debian or sudo dnf install git-all on Fedora
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
 
