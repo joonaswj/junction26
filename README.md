@@ -69,9 +69,14 @@ git-workflow:
 
 9) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
-    I) ”git switch main”
+    I) git switch main //vaihda mainiin
 
-    II) ”git pull origin main”
+    II) git pull origin main // pullaa main
+
+    III) git switch oma_branch // vaihda omaan branhciin
+   
+    IV) git merge main // mergaa maini omaan branchiin
+
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
 
