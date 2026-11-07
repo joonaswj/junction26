@@ -20,7 +20,7 @@ Aloitus:
 
 6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento git clone ssh-linkki tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
-7)Lataa uv ja python uv:lla (environment manager):
+7) Lataa uv ja python uv:lla (environment manager):
     Windows powershellissä: "irm https://astral.sh/uv/install.ps1 | iex"
     Linux terminaalissa "curl -LsSf https://astral.sh/uv/install.sh | sh"
 
