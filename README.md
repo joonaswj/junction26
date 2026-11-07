@@ -15,8 +15,11 @@ Aloitus:
 • Linux: Use your distribution's package manager, such as sudo apt install git-all on Ubuntu/Debian or sudo dnf install git-all on Fedora."- Google Search AI
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
+
 5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle: mene repositoryyn -> klikkaa code -> kopioi ssh-linkki
+
 6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento git clone ssh-linkki tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
+
 7)Lataa uv ja python uv:lla (environment manager):
     Windows powershellissä: "irm https://astral.sh/uv/install.ps1 | iex"
     Linux terminaalissa "curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -34,6 +37,7 @@ Workflow yleisesti:
 git-workflow:
 
 1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
+
 2) Luo oma branch: git checkout -b uusi_branch main // eri brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
 3) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
