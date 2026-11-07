@@ -11,7 +11,9 @@ Aloitus:
 "How to Install by Operating System
 
 • Windows: Go to Git for Windows to download the standalone installer for x64 or ARM64, or use package managers via winget install --id Git.Git -e --source winget.
+
 • macOS: Install via Homebrew using brew install git, via MacPorts with sudo port install git, or through Xcode Command Line Tools (xcode-select --install).
+
 • Linux: Use your distribution's package manager, such as sudo apt install git-all on Ubuntu/Debian or sudo dnf install git-all on Fedora."- Google Search AI
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
