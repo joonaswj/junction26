@@ -71,7 +71,7 @@ git-workflow:
  
     I) ”git switch main”
 
-    II)”git pull origin main”
+    II) ”git pull origin main”
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
 
