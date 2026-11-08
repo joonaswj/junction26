@@ -7,8 +7,7 @@ Collaboration project for the group MixedSignals
 Aloitus:
 1) Avaa pääte laitteessasi.
 2) lataa GIT:
-    
-[GIT asennus](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://git-scm.com/install/&ved=2ahUKEwiir7axrfaXAxW_JxAIHSBJIksQFnoECBEQAQ&usg=AOvVaw1piXI91x_chH4u0QiwVJRs)
+    [GIT asennus](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://git-scm.com/install/&ved=2ahUKEwiir7axrfaXAxW_JxAIHSBJIksQFnoECBEQAQ&usg=AOvVaw1piXI91x_chH4u0QiwVJRs)
 
 
 4) Tee lokaali kansio  esim. "junction" nimellä (ei väliä, näkyy vaan sulle)
