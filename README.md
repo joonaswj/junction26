@@ -14,19 +14,21 @@ Aloitus:
 
 5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle: mene repositoryyn -> klikkaa code -> kopioi ssh-linkki
 
-6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja...Aja komento git clone ssh-linkki tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
+6) Nyt kun GIT on ladattuna, voit käyttää git-komentojacAja ```git clone <ssh-linkki>```
+   tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
-7) Lataa uv (environment manager):
+8) Lataa uv (environment manager):
 
-   Windows powershellissä: "irm https://astral.sh/uv/install.ps1 | iex"
+   Windows powershellissä: ```irm https://astral.sh/uv/install.ps1 | iex ```
 
-   Linux ja macOS terminaalissa: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+   Linux ja macOS terminaalissa: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
 
 9) lataa python virtuaaliympäristöön
-   
+   ```
    uv python install
    
    uv sync --locked
+   ```
 
 # Workflow yleisesti:
  - Käytetään [git](https://git-scm.com/)tiä versionhallintajärjestelmänä ja koodin jakamisessa keskenämme
@@ -43,24 +45,24 @@ Aloitus:
 
 2) Luo oma branch:
 
-   git checkout -b uusi_branch main // tietyssä brancheissa tehdyt muutokset näkyy vain siinä branchissa
+   ```git checkout -b uusi_branch main``` // tietyssä brancheissa tehdyt muutokset näkyy vain siinä branchissa
 
 4) Kun olet saanut jotain aikaan, ne siirretään GitHubiin seuraavasti:
    
-   I) git add muutettu_tiedosto1 muutettu_tiedosto2 ...
+   I) ```git add muutettu_tiedosto1 muutettu_tiedosto2 ...```
    
-   II) git status
+   II) ```git status```
    
-   II) git commit -m  "moromoro"
+   II) ```git commit -m  "moromoro"```
    
-   III) git push origin branchin_nimi
+   III) ```git push origin branchin_nimi```
    
 6) 
     Jos tarvitset jonkun toisen vastuualueen koodia, täytyy ajaa:
 
-   I) git switch oma_branch // vaihda omaan brachiin
+   I) ```git switch oma_branch``` // vaihda omaan brachiin
 
-   II) git pull --no-rebase origin haluttu_branch // hae viimeiset pushatut muutokset toisen branchista ja mergaa ne omaan
+   II) ```git pull --no-rebase origin haluttu_branch``` // hae viimeiset pushatut muutokset toisen branchista ja mergaa ne omaan
 
 8) Merge main branchiin:
    
@@ -68,9 +70,9 @@ Aloitus:
 
 9) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
-    I) git switch main //vaihda mainiin
+    I) ```git switch main``` //vaihda mainiin
 
-    II) git pull --no-rebase origin main // pullaa main
+    II) ```git pull --no-rebase origin main``` // pullaa main
 
 
 Tämän jälkeen iteroidaan vaiheita 2-6.
