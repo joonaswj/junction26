@@ -23,7 +23,7 @@ Aloitus:
 
    Linux ja macOS terminaalissa: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
 
-9) lataa python virtuaaliympäristöön
+9) lataa python virtuaaliympäristöön ja synkronisoi environment manager
    ```
    uv python install
    
