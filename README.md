@@ -65,7 +65,7 @@ MixedSignals-tiimin projekti
 
 8) Merge main branchiin:
    
-   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa. Käytännössä käydään läpi kaikki branchit ja yksi henkilö mergaa ne mainiin.
+   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa. Käytännössä kaikki pushaa omat branchinsa GitHubiin, tekee GitHubissa pull requestit mainiin ja ne hyväksytään manuaalisesti GitHubissa.
 
 9) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
