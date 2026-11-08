@@ -14,7 +14,7 @@ Aloitus:
 
 5) Kopioi SSH-linkki täältä GitHubin reposta leikepöydälle: mene repositoryyn -> klikkaa code -> kopioi ssh-linkki
 
-6) Nyt kun GIT on ladattuna, voit käyttää git-komentojacAja ```git clone <ssh-linkki>```
+6) Nyt kun GIT on ladattuna, voit käyttää git-komentoja. Aja ```git clone <ssh-linkki>```
    tekemässäsi lokaalissa kansiossa -> Nyt sulla on meidän yhteinen projekti ja voit tehdä siihen muutoksia. (Älä kuitenkaan vielä tee)
 
 8) Lataa uv (environment manager):
