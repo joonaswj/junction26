@@ -23,7 +23,7 @@ Aloitus:
 
    Linux ja macOS terminaalissa: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
 
-9) lataa python virtuaaliympäristöön ja synkronisoi environment manager
+9) Lataa python virtuaaliympäristöön ja synkronisoi environment manager:
    ```
    uv python install
    
@@ -41,7 +41,7 @@ Aloitus:
 
 # GIT-workflow:
 
-1) vain alussa on ajettu git clone. Sitä ei enää tehdä.
+1) Alussa on ajettu git clone. Sitä ei enää tehdä.
 
 2) Luo oma branch:
 
@@ -66,7 +66,7 @@ Aloitus:
 
 8) Merge main branchiin:
    
-   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa.
+   Pidetään huolta, että merge main branchiin on aina yhdessä sovittu, eli käytännössä kun yksi vaihe projektia on saatu tehtyä. Tällä tavoin pystymme yrittää välttää merge conflicteja. Niiden ratkominen vie yleensä aikaa. Käytännössä käydään läpi kaikki branchit ja yksi henkilö mergaa ne mainiin.
 
 9) Kun siirrytään seuraavaan vaiheeseen, aletaan työstää mergattua mainia. Nyt se täytyy pullata:
  
