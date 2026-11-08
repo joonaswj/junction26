@@ -1,5 +1,5 @@
 # junction26
-Collaboration project for the group MixedSignals
+MixedSignals-tiimin projekti
 
 
 # Ohjeet GITin käyttämiseen:
