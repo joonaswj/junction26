@@ -1,0 +1,3 @@
+def exclamation():
+    return "!"
+
