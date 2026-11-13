@@ -90,6 +90,29 @@ if __name__ == "__main__":
   Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa     käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
 
 
-      
+
+# MariaDB projekti setup
+
+# Docker
+
+1) Lataa docker:
+
+   Windows: [Docker Desktop for Windows](https://docs.docker.com/desktop/setup/install/windows-install/?utm_source=chatgpt.com)
+
+   macOS: [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/?utm_source=chatgpt.com)
+
+   Ubuntu: [Docker Engine for Ubuntu](https://docs.docker.com/engine/install/ubuntu/?utm_source=chatgpt.com)
+
+2) Tarkista versio
+```
+docker --version
+
+docker compose version
+
+# Ollama
+Downloa
+```
+
+
 
 
