@@ -465,30 +465,17 @@ Happy hacking! 🚀
 
 The challenge data comes from https://github.com/hackjunction/Junction-2026-S-pankki. The CSVs are **not** committed to this repo (the transactions file is ~350 MB). Download them once, from the `backend` directory:
 
+#Ohjelman backendin ja frontendin ajaminen
 ```bash
-uv run python -m junction26.data.download
+cd backend 
+
+uv run uvicorn main:app --reload
 ```
 
-This saves them to `backend/data/raw/` (gitignored) and checks that the large file downloaded correctly. No git-lfs needed.
-
-## Using the data in Python
-
-```python
-from junction26.data import (
-    load_transactions,       # ~3.6M rows: customer_id, tx_date, category, tx_amount_eur, ...
-    load_customers,          # customer_id, customer_postal_code, customer_age
-    load_mortgage_events,    # mortgage application event history (mortgage_customer_id)
-    load_mortgage_outcomes,  # links mortgage_customer_id -> customer_id + final decision
-)
-
-tx = load_transactions(["CUST04457"])  # or load_transactions() for everything
+```bash
+cd frontend
+npx expo start
 ```
-
-The first `load_transactions()` takes a few seconds; after that a cached copy in `backend/data/cache/` loads instantly.
-
-## API endpoints
-
-Start the backend (`uv run fastapi dev src/main.py` in `backend`) and see http://localhost:8000/docs.
 
 | Endpoint | Returns |
 |---|---|
