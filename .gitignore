@@ -5,3 +5,6 @@ __pycache__/
 
 # S-Pankki dataset (download with: uv run python -m junction26.data.download)
 backend/data/
+
+# Secrets (OpenAI API key etc.)
+.env

@@ -186,18 +186,24 @@ def get_comparison(customer_id: str) -> pd.DataFrame:
     return rows.drop(columns="customer_id").reset_index(drop=True)
 
 
+def _eur(amount: float) -> str:
+    """Finnish style: 1 234 €."""
+    return f"{amount:,.0f}".replace(",", " ") + " €"
+
+
 def _text(row: pd.Series) -> str:
     cat = row["category"].lower()
     amount = abs(row["diff_eur"])
     more = row["diff_eur"] > 0
+    word = "more" if more else "less"
     text = (
-        f"You spend €{amount:,.0f} {'more' if more else 'less'} per month on {cat} "
-        f"than similar users (€{row['you_eur']:,.0f} vs €{row['peer_median_eur']:,.0f})"
+        f"You spend {_eur(amount)} {word} per month on {cat} than similar customers "
+        f"({_eur(row['you_eur'])} vs {_eur(row['peer_median_eur'])})"
     )
     if more:
-        text += f", that's €{amount * 12:,.0f} a year"
+        text += f". That adds up to {_eur(amount * 12)} a year"
     pct = min(row["percentile"] if more else 100 - row["percentile"], 99)
-    text += f". You spend {'more' if more else 'less'} than {pct:.0f}% of them."
+    text += f". You spend {word} than {pct:.0f}% of them."
     return text
 
 
@@ -213,9 +219,22 @@ def get_insights(customer_id: str, limit: int = 5) -> dict:
         # Low spending here likely means they use another card.
         notable = notable[notable["diff_eur"] > 0]
     notable = notable.reindex(notable["diff_eur"].abs().sort_values(ascending=False).index)
-    items = [
-        {**row.to_dict(), "direction": "more" if row["diff_eur"] > 0 else "less",
-         "text": _text(row)}
-        for _, row in notable.head(limit).iterrows()
-    ]
-    return {**profile, "insights": items}
+    from . import household
+    from .suggestions import question_for
+
+    home = household.get(customer_id)
+    items = []
+    for _, row in notable.iterrows():
+        direction = "more" if row["diff_eur"] > 0 else "less"
+        items.append({
+            **row.to_dict(),
+            "direction": direction,
+            "text": _text(row),
+            # What to ask the assistant about it (never "why do I spend less").
+            "question": question_for(row["category"], direction),
+            # Why this difference may simply reflect their household.
+            "expected_because": household.expectation(row["category"], direction, home),
+        })
+    # Differences the household explains are less newsworthy: show them last.
+    items.sort(key=lambda i: i["expected_because"] is not None)
+    return {**profile, "insights": items[:limit]}
