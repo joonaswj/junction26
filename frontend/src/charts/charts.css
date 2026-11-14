@@ -1,0 +1,481 @@
+/* Charts. Colours are roles, so a brand swap happens in one place.
+   s1 + s2 are validated as a colour-blind-safe pair on white; peers are a
+   deliberate grey so "you" stands out. Text always uses ink, never the
+   series colour. */
+.viz {
+    --s1: var(--brand);
+    --s2: #2a78d6;
+    --peer: #a3aba6;
+    --track: #edf1ee;
+    --grid: #dde3de;
+    --bad: var(--more);
+
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.viz figcaption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.viz-title {
+    font-weight: 700;
+}
+
+.viz-sub,
+.viz-hint {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 0;
+}
+
+.viz-sub strong,
+.viz-hint strong {
+    color: var(--text);
+}
+
+.viz .s1 {
+    background: var(--s1);
+}
+
+.viz .s2 {
+    background: var(--s2);
+}
+
+.viz .peer {
+    background: var(--peer);
+}
+
+.viz .bad {
+    background: var(--bad);
+}
+
+/* Legend and readout */
+.viz-legend,
+.viz-readout {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 14px;
+    font-size: 0.82rem;
+}
+
+.viz-legend.spread {
+    justify-content: space-between;
+}
+
+.viz-readout {
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 10px;
+}
+
+.viz-readout-month {
+    font-weight: 700;
+    margin-right: auto;
+}
+
+.viz-readout.multi .viz-readout-month {
+    flex-basis: 100%; /* month on its own line, both series below it */
+}
+
+.viz-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+}
+
+.viz-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex: none;
+}
+
+/* Bars */
+.viz-bars,
+.viz-compare,
+.viz-checks {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.viz-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.viz-value {
+    font-weight: 600;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.viz-share {
+    display: inline-block;
+    min-width: 3.2em;
+    text-align: right;
+    font-weight: 400;
+    color: var(--muted);
+}
+
+.viz-track {
+    height: 8px;
+    background: var(--track);
+    border-radius: 0 4px 4px 0;
+}
+
+.viz-fill {
+    height: 100%;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Columns */
+.viz-columns {
+    display: flex;
+    align-items: stretch;
+    height: 150px;
+    border-bottom: 1px solid var(--grid);
+}
+
+.viz-month {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    border: none;
+    background: none;
+    position: relative;
+}
+
+.viz-plot {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 2px;
+    border-radius: 6px 6px 0 0;
+}
+
+.viz-month.selected .viz-plot {
+    background: var(--track);
+}
+
+.viz-column {
+    flex: 1;
+    max-width: 16px;
+    border-radius: 4px 4px 0 0;
+    opacity: 0.55;
+}
+
+.viz-month.selected .viz-column {
+    opacity: 1;
+}
+
+.viz-tick {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    padding-top: 4px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-align: center;
+}
+
+.viz-month.selected .viz-tick {
+    color: var(--text);
+    font-weight: 700;
+}
+
+.viz-columns + .viz-hint {
+    margin-top: 14px; /* room for the month labels under the baseline */
+}
+
+/* Line */
+.viz-line {
+    position: relative;
+    height: 130px;
+    border-bottom: 1px solid var(--grid);
+}
+
+.viz-line svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.viz-stroke {
+    fill: none;
+    stroke: var(--s1);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.viz-area {
+    fill: var(--s1);
+    opacity: 0.1;
+}
+
+.viz-dot {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    background: var(--s1);
+    box-shadow: 0 0 0 2px var(--surface);
+    pointer-events: none;
+}
+
+.viz-hits {
+    position: absolute;
+    inset: 0;
+    display: flex;
+}
+
+.viz-hits button {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 0;
+}
+
+.viz-axis {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--muted);
+}
+
+/* Compare */
+.viz-compare {
+    gap: 12px;
+}
+
+.viz-compare-label {
+    display: block;
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.viz-compare-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 12px;
+    margin-bottom: 2px;
+}
+
+.viz-compare-bar .viz-fill {
+    height: 10px;
+    min-width: 2px;
+}
+
+.viz-position {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 22px;
+}
+
+.viz-position-track {
+    position: relative;
+    height: 8px;
+    border-radius: 4px;
+    background: linear-gradient(to right, var(--track), var(--peer));
+}
+
+.viz-position-marker {
+    position: absolute;
+    top: -22px;
+    transform: translateX(-50%);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.viz-position-marker::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 19px;
+    width: 14px;
+    height: 14px;
+    margin-left: -7px;
+    border-radius: 50%;
+    background: var(--s1);
+    box-shadow: 0 0 0 2px var(--surface);
+}
+
+/* Mortgage */
+.viz-decision {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+
+.viz-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px 3px 4px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+}
+
+.viz-status > span {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: #fff;
+    font-size: 0.7rem;
+}
+
+.viz-status.bad {
+    background: var(--more-soft);
+    color: var(--more);
+}
+
+.viz-status.bad > span {
+    background: var(--more);
+}
+
+.viz-reason {
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--bg);
+    font-size: 0.88rem;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.viz-reason p {
+    margin: 0;
+    color: var(--muted);
+}
+
+.viz-reason p strong {
+    color: var(--text);
+}
+
+.viz-split {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.viz-split-bar {
+    display: flex;
+    gap: 2px; /* surface gap between segments */
+    height: 14px;
+}
+
+.viz-split-bar span:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.viz-split-bar span:last-child {
+    border-radius: 0 4px 4px 0;
+    min-width: 4px;
+}
+
+.viz-ltv {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.viz-ltv .viz-row {
+    margin: 0;
+    align-items: center;
+}
+
+.viz-meter {
+    position: relative;
+    height: 10px;
+    margin-bottom: 18px;
+    background: var(--track);
+    border-radius: 0 4px 4px 0;
+}
+
+.viz-cap {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    background: var(--text);
+}
+
+.viz-cap span {
+    position: absolute;
+    top: 100%;
+    right: -14px;
+    padding-top: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--text);
+}
+
+/* Calculator */
+.viz-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.viz-hero-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.viz-hero-value span {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0;
+}
+
+.viz-checks li {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.viz-checks strong {
+    color: var(--text);
+}

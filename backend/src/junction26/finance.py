@@ -242,3 +242,157 @@ def demo_customers(limit: int = 10) -> list[dict]:
         }
         for cid, row in picked.iterrows()
     ]
+
+
+# --- Mortgage: benchmarks, explanations and a what-if calculator -------------
+
+# Rules of thumb used for teaching. Not S-Pankki's actual credit policy.
+LTV_LIMIT = 0.90  # Finnish loan cap: loan at most 90% of collateral value
+LTV_LIMIT_FIRST_HOME = 0.95
+STRESS_RATE_PCT = 6.0  # common stress-test rate in Finland
+STRESS_YEARS = 25
+EXAMPLE_RATE_PCT = 4.0  # illustrative, not a quote
+# In this dataset the bank's required income is always this share of the loan.
+REQUIRED_INCOME_PER_LOAN_EUR = 0.0184
+
+REJECTION_REASONS = {
+    "insufficient_collateral": {
+        "title": "Not enough collateral",
+        "meaning": "The value the bank could count as security (the home and any "
+        "other collateral) was too low compared with the loan.",
+        "what_helps": "A smaller loan, a larger down payment, or extra collateral "
+        "such as a guarantee.",
+    },
+    "insufficient_income": {
+        "title": "Income too low for the loan",
+        "meaning": "Your regular income was below what the bank requires to repay "
+        "this loan safely, also if interest rates rise.",
+        "what_helps": "A smaller loan, a longer repayment time, or applying together "
+        "with a co-borrower.",
+    },
+    "insufficient_equity": {
+        "title": "Down payment too small",
+        "meaning": "Your own money covered too small a share of the price, so the "
+        "loan would have been too large compared with the home's value.",
+        "what_helps": "Saving a larger down payment or choosing a cheaper home.",
+    },
+    "existing_debt": {
+        "title": "Existing debt too high",
+        "meaning": "Together with your current loans, the new loan would have made "
+        "your total debt too heavy for your income.",
+        "what_helps": "Paying down existing loans first, or a smaller mortgage.",
+    },
+}
+
+
+def _annuity(loan: float, rate_pct: float, years: int) -> float:
+    """Monthly payment of an annuity loan."""
+    n = years * 12
+    r = rate_pct / 100 / 12
+    return loan / n if r == 0 else loan * r / (1 - (1 + r) ** -n)
+
+
+@lru_cache(maxsize=1)
+def mortgage_benchmarks() -> dict:
+    """How mortgage applications in the data turned out (anonymous aggregates)."""
+    o = load_mortgage_outcomes()
+    approved = o[o["final_decision"] == "approved"]
+    return {
+        "applications": len(o),
+        "approved_pct": round(len(approved) / len(o) * 100),
+        "median_ltv_approved": round(float(approved["final_loan_to_value"].median()), 3),
+        "median_down_payment_pct_approved": round(
+            float(
+                (approved["final_equity_amount_eur"] / approved["final_property_price_eur"])
+                .median()
+                * 100
+            ),
+            1,
+        ),
+        "median_property_price_eur": _r(o["final_property_price_eur"].median()),
+        "rejection_reasons": o["rejection_reason"].value_counts().to_dict(),
+    }
+
+
+def get_mortgage_details(customer_id: str) -> dict:
+    """get_mortgage_status plus teaching context: explanation, benchmarks, income check."""
+    status = get_mortgage_status(customer_id)
+    if not status["has_mortgage_application"]:
+        return status
+    income = get_overview(customer_id)["avg_monthly_income_eur"]
+    reason = status.get("rejection_reason")
+    status.update(
+        {
+            "your_avg_monthly_income_eur": income,
+            "ltv_limit": LTV_LIMIT,
+            "rejection_explained": REJECTION_REASONS.get(reason) if reason else None,
+            "all_applicants_in_data": mortgage_benchmarks(),
+        }
+    )
+    return status
+
+
+def mortgage_calculator(
+    customer_id: str,
+    property_price_eur: float,
+    down_payment_eur: float | None = None,
+    years: int = 25,
+    interest_rate_pct: float = EXAMPLE_RATE_PCT,
+) -> dict:
+    """What-if estimate for buying a home. For learning, not a loan offer."""
+    price = float(property_price_eur)
+    if not 20_000 <= price <= 5_000_000:
+        raise ValueError("property_price_eur must be between 20 000 and 5 000 000")
+    years = max(5, min(int(years), 35))
+    rate = max(0.0, min(float(interest_rate_pct), 15.0))
+    overview = get_overview(customer_id)
+    balance = overview["current_balance_eur"]
+    min_down = price * (1 - LTV_LIMIT)
+    if down_payment_eur is None:
+        # Assume they'd use their balance, but at least the minimum.
+        down, assumed = max(min_down, min(balance, price * 0.3)), True
+    else:
+        down, assumed = max(0.0, min(float(down_payment_eur), price)), False
+    loan = price - down
+    income = overview["avg_monthly_income_eur"]
+    payment = _annuity(loan, rate, years)
+    stress = _annuity(loan, STRESS_RATE_PCT, STRESS_YEARS)
+    required_income = loan * REQUIRED_INCOME_PER_LOAN_EUR
+    ltv = loan / price
+    housing_now = _spending_by_category(_last_months(_tx(customer_id), 12)).get("Housing", 0) / 12
+    return {
+        "estimate_only": "Rough estimate for learning. Not a loan offer or decision.",
+        "property_price_eur": _r(price),
+        "down_payment_eur": _r(down),
+        "down_payment_assumed": assumed,
+        "minimum_down_payment_eur": _r(min_down),
+        "loan_eur": _r(loan),
+        "loan_to_value": round(ltv, 3),
+        "ltv_limit": LTV_LIMIT,
+        "ltv_ok": ltv <= LTV_LIMIT + 1e-9,
+        "years": years,
+        "interest_rate_pct": rate,
+        "monthly_payment_eur": _r(payment),
+        "stress_test": {
+            "rate_pct": STRESS_RATE_PCT,
+            "years": STRESS_YEARS,
+            "monthly_payment_eur": _r(stress),
+        },
+        "your_avg_monthly_income_eur": income,
+        "payment_share_of_income_pct": round(payment / income * 100, 1) if income else None,
+        "required_monthly_income_eur": _r(required_income),
+        "income_ok": income >= required_income,
+        "your_current_housing_cost_eur": _r(housing_now),
+        "your_balance_eur": balance,
+        "savings_cover_down_payment": balance >= down,
+        "max_loan_for_your_income_eur": _r(income / REQUIRED_INCOME_PER_LOAN_EUR),
+        # The most expensive home their income supports with a 10% down payment.
+        "max_price_for_your_income_eur": _r(income / REQUIRED_INCOME_PER_LOAN_EUR / LTV_LIMIT),
+        "down_payment_needed_for_that_eur": _r(
+            income / REQUIRED_INCOME_PER_LOAN_EUR / LTV_LIMIT * (1 - LTV_LIMIT)
+        ),
+        "all_applicants_in_data": {
+            k: mortgage_benchmarks()[k]
+            for k in ("approved_pct", "median_ltv_approved", "median_down_payment_pct_approved")
+        },
+    }

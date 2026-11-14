@@ -1,11 +1,16 @@
-"""Chatbot that answers questions about one customer's finances.
+"""Chatbot that teaches a customer about their own finances.
 
 The LLM (Featherless or OpenAI, see featherless.py) gets:
 - a short snapshot of the customer's numbers in the system prompt, so it can
-  answer common questions straight away, and
-- tools (functions in finance.py) to look up more detail. customer_id is
-  always filled in by the server, never by the model, so it can only see the
-  logged-in customer's data.
+  answer common questions straight away,
+- tools (functions in finance.py) to look up more detail, and
+- a menu of chart tags like [[chart:spending]]. The charts themselves are
+  built from the real data in visuals.py, the model never writes their numbers.
+
+Guardrails (see guardrails.py): messages are screened before the LLM is
+called, the model marks out-of-scope questions with [[off_topic]], and
+customer_id is always filled in by the server, so the model can only see the
+logged-in customer's data. Every reply comes with suggested next questions.
 
 If the model doesn't support tool calling, the request is retried without
 tools and the model answers from the snapshot only.
@@ -19,33 +24,69 @@ from typing import Any
 
 import openai
 
-from . import finance
+from . import finance, guardrails, visuals
 from .featherless import get_llm
 
 MAX_TOOL_ROUNDS = 6
 MAX_TOKENS = 1500
+MAX_VISUALS = 2
 
 SYSTEM_PROMPT = """\
-You are the S-Pankki money assistant in a mobile banking app. You are talking \
-to a customer about their own finances.
+You are the S-Pankki money assistant in a mobile banking app. You help one \
+customer understand their own finances. You are a patient teacher: the goal \
+is that they understand their money better after every answer.
 
-Rules:
-- Base every number on the data below or on tool results. Never guess or \
-invent figures. If you need more detail and have tools, call them. If you \
-don't have the data, say so.
+{scope_rules}
+Facts:
+- Base every number on the snapshot below or on tool results. Never guess or \
+invent figures, and never do loan maths yourself: use mortgage_calculator. If \
+you don't have the data, say so.
+- Only state what the data shows. Never say what banks or lenders \
+"typically" or "usually" accept, and never add rules of thumb, market facts \
+or "most people" claims of your own. The only lending rules you may mention \
+are the ones in tool results: the 90% loan cap, the required income and the \
+stress test. The mortgage statistics are about all applicants in the data, \
+not the customer's peer group.
+- Don't guess at causes, habits or reasons you cannot see in the data. If \
+the data doesn't show why, say what it does show.
 - "Today" is {today}: the data ends there. "Last month" means the last full \
 month before that date.
-- Amounts are in euros. Write them like 1 234 € (round to whole euros unless \
-cents matter).
-- "Similar users" means customers in the same age and income group \
-({peer_group}). Say who they are compared to when you compare.
-- Be short and friendly: a few sentences or a short list. The customer reads \
-this on a phone. Plain text, no tables, no headings.
-- Answer in the language the customer writes in.
-- You can explain, point out patterns and suggest practical ways to save. Do \
-not recommend specific investment products or give legal or tax advice.
+- "Similar customers" means customers in the same age and income group \
+({peer_group}). Say who you compare with when you compare.
 - Merchants only have codes like MRC-RES-0042 (RES = restaurants), no names.
 {low_activity_note}
+How to answer:
+- Short and friendly, for a phone screen: lead with the answer in one \
+sentence, then at most 3 short bullet points (start each with "- ") or 2 \
+more sentences. Stay under 90 words. Plain text. You may use **bold** for \
+one or two key numbers. No tables, no headings, no emojis.
+- Don't announce what you are about to do, and don't end by asking whether \
+they want more: the app shows suggested next questions by itself.
+- Write amounts like 1 234 € (whole euros unless cents matter).
+- Teach: explain the "why" in plain words, and explain a finance term in a \
+few words the first time you use it (for example: loan-to-value = the loan \
+as a share of the home's value). End with one practical tip when it fits.
+- {language_rule}
+- Mortgage answers are estimates for learning, not a loan offer or a \
+decision: say so in a few words, and suggest talking to an S-Pankki advisor \
+for a real application.
+- Don't recommend specific investment products.
+
+Charts:
+- When a picture helps understanding, end your answer with ONE tag on its \
+own line. The app draws the chart from the customer's real data:
+  [[chart:spending]]             spending by category, last 3 months
+  [[chart:category:Groceries]]   one category month by month
+  [[chart:income_vs_spending]]   income and spending per month
+  [[chart:balance]]              balance over the last 12 months
+  [[chart:peers]]                you vs similar customers, biggest differences
+  [[chart:peers:Groceries]]      you vs similar customers in one category
+  [[chart:mortgage]]             the customer's own mortgage application
+- mortgage_calculator shows its own chart automatically, add no tag for it.
+- Never ask whether they want a chart: if it helps, just add the tag.
+- Don't describe the chart or list every number in it. Say what it shows \
+and the takeaway.
+
 Customer: age {age}.
 
 Snapshot of the customer's data (JSON):
@@ -66,13 +107,17 @@ _CATEGORY = {
 }
 
 
-def _tool(name: str, description: str, properties: dict) -> dict:
+def _tool(name: str, description: str, properties: dict, required: list[str] | None = None):
     return {
         "type": "function",
         "function": {
             "name": name,
             "description": description,
-            "parameters": {"type": "object", "properties": properties, "required": []},
+            "parameters": {
+                "type": "object",
+                "properties": properties,
+                "required": required or [],
+            },
         },
     }
 
@@ -100,7 +145,7 @@ TOOLS = [
     ),
     _tool(
         "compare_to_peers",
-        "Compare monthly spending (last 12 months) to similar users. Without a "
+        "Compare monthly spending (last 12 months) to similar customers. Without a "
         "category: the biggest differences. With one: that category in detail, "
         "including the percentile.",
         {"category": _CATEGORY},
@@ -120,9 +165,28 @@ TOOLS = [
     ),
     _tool(
         "get_mortgage_status",
-        "The customer's mortgage application, if any: decision, property price, "
-        "loan, equity, loan-to-value, required income, recent events.",
+        "The customer's own mortgage application, if any: decision, the reason "
+        "explained, property price, loan, down payment, loan-to-value, required "
+        "income, recent events, and how other applicants did.",
         {},
+    ),
+    _tool(
+        "mortgage_calculator",
+        "What-if estimate for buying a home: loan, loan-to-value against the 90% "
+        "cap, monthly payment, stress-tested payment, required income vs the "
+        "customer's income, and whether their savings cover the down payment. "
+        "Use for any 'could I afford', 'how much could I borrow' or 'what would "
+        "the payment be' question.",
+        {
+            "property_price_eur": {"type": "number"},
+            "down_payment_eur": {
+                "type": "number",
+                "description": "Own money. Leave out to assume their savings, at least 10%.",
+            },
+            "years": {"type": "integer", "description": "Loan time, default 25"},
+            "interest_rate_pct": {"type": "number", "description": "Default 4.0 (example)"},
+        },
+        ["property_price_eur"],
     ),
 ]
 
@@ -132,21 +196,47 @@ _FUNCTIONS: dict[str, Callable[..., dict]] = {
     "get_monthly_trend": finance.get_monthly_trend,
     "compare_to_peers": finance.compare_to_peers,
     "find_transactions": finance.find_transactions,
-    "get_mortgage_status": finance.get_mortgage_status,
+    "get_mortgage_status": finance.get_mortgage_details,
+    "mortgage_calculator": finance.mortgage_calculator,
 }
 
-# Short labels the app can show while a tool runs.
+# Short labels the app shows while a tool runs.
 TOOL_LABELS = {
-    "get_overview": "Looking at your accounts",
+    "get_overview": "Looking at your account",
     "get_spending": "Adding up your spending",
     "get_monthly_trend": "Checking your monthly trend",
-    "compare_to_peers": "Comparing with similar users",
+    "compare_to_peers": "Comparing with similar customers",
     "find_transactions": "Searching your transactions",
     "get_mortgage_status": "Checking your mortgage application",
+    "mortgage_calculator": "Calculating a home loan estimate",
+}
+
+# What a tool call or chart is about, for choosing follow-up suggestions.
+_TOPICS = {
+    "get_spending": "spending",
+    "find_transactions": "spending",
+    "get_overview": "trend",
+    "get_monthly_trend": "trend",
+    "compare_to_peers": "peers",
+    "get_mortgage_status": "mortgage",
+    "mortgage_calculator": "mortgage",
+    "bars": "spending",
+    "columns": "trend",
+    "line": "trend",
+    "compare": "peers",
+    "mortgage": "mortgage",
+    "calc": "mortgage",
 }
 
 # Set to False the first time the model rejects tools, so we stop sending them.
 _tools_supported: bool | None = None
+
+
+def _parse_args(arguments: str | dict | None) -> dict:
+    args = json.loads(arguments or "{}") if isinstance(arguments, str) else (arguments or {})
+    args = {k: v for k, v in args.items() if v is not None}
+    args.pop("customer_id", None)  # never let the model pick the customer
+    return args
 
 
 def run_tool(customer_id: str, name: str, arguments: str | dict) -> dict:
@@ -154,10 +244,7 @@ def run_tool(customer_id: str, name: str, arguments: str | dict) -> dict:
     if name not in _FUNCTIONS:
         return {"error": f"Unknown tool {name}"}
     try:
-        args = json.loads(arguments or "{}") if isinstance(arguments, str) else arguments
-        args = {k: v for k, v in (args or {}).items() if v is not None}
-        args.pop("customer_id", None)  # never let the model pick the customer
-        return _FUNCTIONS[name](customer_id, **args)
+        return _FUNCTIONS[name](customer_id, **_parse_args(arguments))
     except (ValueError, TypeError, KeyError) as e:
         return {"error": str(e)}
 
@@ -166,31 +253,46 @@ def _snapshot(customer_id: str) -> dict:
     """Compact summary of the customer's data for the system prompt."""
     overview = finance.get_overview(customer_id)
     insights = finance.get_insights(customer_id, limit=5)
-    mortgage = finance.get_mortgage_status(customer_id)
+    mortgage = finance.get_mortgage_details(customer_id)
     snap: dict[str, Any] = {
         "overview": {k: v for k, v in overview.items() if k not in ("customer_id", "age")},
         "spending_last_3_months_eur": finance.get_spending(customer_id, 3)["by_category_eur"],
-        "vs_similar_users_monthly": [
+        "vs_similar_customers_monthly": [
             {k: i[k] for k in ("category", "you_eur", "peer_median_eur", "diff_eur",
                                "percentile")}
             for i in insights["insights"]
         ],
         "peer_group_size": insights["peer_count"],
+        "home_loan_basics": {
+            "loan_cap_ltv": finance.LTV_LIMIT,
+            "max_loan_for_their_income_eur": round(
+                overview["avg_monthly_income_eur"] / finance.REQUIRED_INCOME_PER_LOAN_EUR
+            ),
+            "all_applicants_in_data": finance.mortgage_benchmarks(),
+        },
     }
     if mortgage.get("has_mortgage_application"):
         snap["mortgage_application"] = {
             k: mortgage.get(k)
-            for k in ("final_decision", "rejection_reason", "final_property_price_eur",
-                      "final_requested_loan_eur", "final_equity_amount_eur",
-                      "final_loan_to_value", "required_monthly_income_eur",
-                      "application_started")
+            for k in ("final_decision", "rejection_reason", "rejection_explained",
+                      "final_property_price_eur", "final_requested_loan_eur",
+                      "final_equity_amount_eur", "final_loan_to_value",
+                      "required_monthly_income_eur", "application_started")
         }
+        snap["mortgage_application"]["note"] = (
+            "The bank assessed income when the customer applied. Their 12-month "
+            "average income above may differ from what the bank used."
+        )
+    else:
+        snap["mortgage_application"] = None
     return snap
 
 
-def system_prompt(customer_id: str) -> str:
+def system_prompt(customer_id: str, user_text: str = "") -> str:
     profile = finance.get_profile(customer_id)  # raises KeyError if unknown
     return SYSTEM_PROMPT.format(
+        scope_rules=guardrails.SCOPE_RULES,
+        language_rule=guardrails.language_rule(user_text),
         today=finance.data_end_date().isoformat(),
         peer_group=profile["peer_group"],
         age=profile["age"],
@@ -199,55 +301,73 @@ def system_prompt(customer_id: str) -> str:
     )
 
 
-def _start(customer_id: str, history: list[dict]) -> list[dict[str, Any]]:
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt(customer_id)}]
-    for m in history:
-        if m.get("role") in ("user", "assistant") and m.get("content"):
-            messages.append({"role": m["role"], "content": str(m["content"])})
-    return messages
+def _clean_history(history: list[dict]) -> list[dict[str, str]]:
+    msgs = [
+        {"role": m["role"], "content": str(m["content"])}
+        for m in history
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
+    return msgs[-guardrails.MAX_HISTORY_MESSAGES:]
 
 
-class _ThinkFilter:
-    """Drops <think>...</think> blocks that reasoning models put in the answer."""
+class _StreamFilter:
+    """Hides <think>...</think> and collects [[tags]] from streamed text.
 
-    OPEN, CLOSE = "<think>", "</think>"
+    feed() returns the text that is safe to show so far. Tags can be split
+    across chunks, so a possible start of a tag is held back until it's clear.
+    """
+
+    _PAIRS = (("<think>", "</think>"), ("[[", "]]"))
+    _MAX_TAG = 80  # longer than this and "[[" was just text
 
     def __init__(self) -> None:
         self.buffer = ""
-        self.thinking = False
+        self.inside: tuple[str, str] | None = None
+        self.tags: list[str] = []
 
     def feed(self, text: str) -> str:
         self.buffer += text
         out = ""
         while self.buffer:
-            if self.thinking:
-                end = self.buffer.find(self.CLOSE)
+            if self.inside:
+                opener, closer = self.inside
+                end = self.buffer.find(closer)
                 if end == -1:
-                    # Keep the tail in case "</think>" is split across chunks.
-                    self.buffer = self.buffer[-len(self.CLOSE):]
+                    if opener == "[[" and len(self.buffer) > self._MAX_TAG:
+                        out += opener + self.buffer  # not a tag after all
+                        self.buffer, self.inside = "", None
+                    elif opener == "<think>":
+                        self.buffer = self.buffer[-len(closer):]  # drop thoughts
                     return out
-                self.buffer = self.buffer[end + len(self.CLOSE):].lstrip()
-                self.thinking = False
-            else:
-                start = self.buffer.find(self.OPEN)
-                if start == -1:
-                    # Hold back a possible partial "<think" at the end.
-                    keep = max(
-                        (i for i in range(1, len(self.OPEN)) if self.buffer.endswith(self.OPEN[:i])),
-                        default=0,
-                    )
-                    cut = len(self.buffer) - keep
-                    out += self.buffer[:cut]
-                    self.buffer = self.buffer[cut:]
-                    return out
-                out += self.buffer[:start]
-                self.buffer = self.buffer[start + len(self.OPEN):]
-                self.thinking = True
+                if opener == "[[":
+                    self.tags.append(self.buffer[:end].strip())
+                self.buffer = self.buffer[end + len(closer):]
+                self.inside = None
+                continue
+            starts = [(self.buffer.find(o), o, c) for o, c in self._PAIRS]
+            starts = [s for s in starts if s[0] != -1]
+            if not starts:
+                # Hold back a possible partial opener at the end.
+                keep = max(
+                    (i for o, _ in self._PAIRS for i in range(1, len(o))
+                     if self.buffer.endswith(o[:i])),
+                    default=0,
+                )
+                cut = len(self.buffer) - keep
+                out += self.buffer[:cut]
+                self.buffer = self.buffer[cut:]
+                return out
+            pos, opener, closer = min(starts)
+            out += self.buffer[:pos]
+            self.buffer = self.buffer[pos + len(opener):]
+            self.inside = (opener, closer)
         return out
 
     def flush(self) -> str:
-        rest = "" if self.thinking else self.buffer
-        self.buffer = ""
+        rest = "" if self.inside else self.buffer
+        if self.inside and self.inside[0] == "[[":
+            rest = "[[" + self.buffer
+        self.buffer, self.inside = "", None
         return rest
 
 
@@ -263,26 +383,73 @@ def _create(llm, messages: list[dict[str, Any]], use_tools: bool):
     return llm.client.chat.completions.create(**kwargs)
 
 
+def _redirect(customer_id: str, reason: str, user_text: str, asked: list[str],
+              sentence: str = "") -> dict:
+    return {
+        "type": "done",
+        "reply": guardrails.redirect_message(reason, user_text, sentence),
+        "visuals": [],
+        "suggestions": guardrails.follow_ups(customer_id, [], asked, [], user_text),
+        "guard": reason,
+        "tools_used": [],
+    }
+
+
+def _pick_visuals(customer_id: str, tags: list[str], tool_visuals: list[dict]) -> list[dict]:
+    """Charts for the reply: the calculator's own chart, then the model's tags,
+    else charts that go with the tools it used. No duplicates, at most MAX_VISUALS."""
+    picked = [v for v in tool_visuals if v["type"] == "calc"][-1:]
+    if picked:
+        return picked  # the estimate card is the whole story for a what-if
+    tagged = [visuals.from_tag(customer_id, t[len("chart:"):])
+              for t in tags if t.lower().startswith("chart:")]
+    tagged = [v for v in tagged if v]
+    for v in tagged or [v for v in tool_visuals if v["type"] != "calc"][-MAX_VISUALS:]:
+        if all(v["title"] != p["title"] for p in picked):
+            picked.append(v)
+    return picked[:MAX_VISUALS]
+
+
 def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dict]:
     """Run the chat, yielding events as they happen:
 
-    {"type": "tool", "name": ..., "label": ...}   a tool started
+    {"type": "tool", "name": ..., "label": ...}   a lookup started
     {"type": "text", "delta": ...}               part of the answer
-    {"type": "done", "reply": ..., "tools_used": [...]}
+    {"type": "done", "reply", "visuals", "suggestions", "guard", "tools_used"}
     {"type": "error", "message": ...}
+
+    `guard` is None for a normal answer, or why the message was redirected:
+    "off_topic", "injection", "other_customer" or "too_long".
     """
     global _tools_supported
+    history = _clean_history(history)
+    if not history or history[-1]["role"] != "user":
+        yield {"type": "error", "message": "The last message must be from the user."}
+        return
+    user_text = history[-1]["content"]
+    asked = [m["content"] for m in history if m["role"] == "user"]
+
     try:
-        messages = _start(customer_id, history)
-        llm = llm or get_llm()
+        prompt = system_prompt(customer_id, user_text)
     except KeyError:
         yield {"type": "error", "message": f"Customer {customer_id} not found"}
         return
+
+    # Layer 1: instant checks, no LLM call.
+    if reason := guardrails.screen(customer_id, user_text):
+        yield _redirect(customer_id, reason, user_text, asked)
+        return
+
+    try:
+        llm = llm or get_llm()
     except RuntimeError as e:
         yield {"type": "error", "message": str(e)}
         return
 
+    messages: list[dict[str, Any]] = [{"role": "system", "content": prompt}, *history]
     tools_used: list[str] = []
+    tool_visuals: list[dict] = []
+    tags: list[str] = []
     reply = ""
     try:
         for _ in range(MAX_TOOL_ROUNDS + 1):
@@ -297,17 +464,21 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                 use_tools = False
                 stream = _create(llm, messages, use_tools)
 
-            think = _ThinkFilter()
+            flt = _StreamFilter()
             text, calls = "", {}
             for chunk in stream:
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta
                 if delta.content:
-                    visible = think.feed(delta.content)
-                    if visible:
+                    visible = flt.feed(delta.content)
+                    # Hold the text back once the model has flagged off-topic:
+                    # the redirect message is sent whole in the done event.
+                    if visible and "off_topic" not in flt.tags:
                         text += visible
                         yield {"type": "text", "delta": visible}
+                    elif visible:
+                        text += visible
                 for tc in delta.tool_calls or []:
                     call = calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
                     if tc.id:
@@ -316,10 +487,19 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                         call["name"] += tc.function.name
                     if tc.function and tc.function.arguments:
                         call["arguments"] += tc.function.arguments
-            if rest := think.flush():
+            if rest := flt.flush():
                 text += rest
-                yield {"type": "text", "delta": rest}
-            reply += text
+                if "off_topic" not in flt.tags:
+                    yield {"type": "text", "delta": rest}
+            tags += flt.tags
+            # Text written before a tool call ("Let me check...") is not part
+            # of the answer: the reply is the last round only.
+            reply = text
+
+            # Layer 2: the model says the question is out of scope.
+            if "off_topic" in tags:
+                yield _redirect(customer_id, "off_topic", user_text, asked, reply)
+                return
 
             if not calls:
                 if use_tools:
@@ -328,7 +508,20 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                 if not reply:
                     yield {"type": "error", "message": "The assistant gave an empty answer."}
                     return
-                yield {"type": "done", "reply": reply, "tools_used": tools_used}
+                shown = _pick_visuals(customer_id, tags, tool_visuals)
+                topics = [_TOPICS[v["type"]] for v in shown] + [
+                    _TOPICS[t] for t in tools_used if t in _TOPICS
+                ]
+                yield {
+                    "type": "done",
+                    "reply": reply,
+                    "visuals": shown,
+                    "suggestions": guardrails.follow_ups(
+                        customer_id, topics, asked, tools_used, user_text
+                    ),
+                    "guard": None,
+                    "tools_used": tools_used,
+                }
                 return
 
             ids = {i: c["id"] or f"call_{i}" for i, c in calls.items()}
@@ -350,6 +543,14 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                 yield {"type": "tool", "name": c["name"], "label": TOOL_LABELS.get(c["name"], "")}
                 tools_used.append(c["name"])
                 result = run_tool(customer_id, c["name"], c["arguments"])
+                try:
+                    visual = visuals.from_tool(
+                        customer_id, c["name"], _parse_args(c["arguments"]), result
+                    )
+                except ValueError:
+                    visual = None
+                if visual:
+                    tool_visuals.append(visual)
                 messages.append(
                     {
                         "role": "tool",
@@ -365,10 +566,10 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
 
 
 def chat(customer_id: str, history: list[dict], llm=None) -> dict:
-    """Non-streaming version: returns {"reply", "tools_used"} or raises."""
+    """Non-streaming version: returns the `done` event without its type, or raises."""
     for event in stream_chat(customer_id, history, llm):
         if event["type"] == "done":
-            return {"reply": event["reply"], "tools_used": event["tools_used"]}
+            return {k: v for k, v in event.items() if k != "type"}
         if event["type"] == "error":
             raise RuntimeError(event["message"])
     raise RuntimeError("Chat ended without a reply")

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "./App.css";
-import Chat from "./screens/Chat";
+import Chat, { type PendingQuestion } from "./screens/Chat";
 import Home from "./screens/Home";
 import Login from "./screens/Login";
 
@@ -28,6 +28,13 @@ function saveSession(id: string | null) {
 function App() {
     const [customerId, setCustomerId] = useState<string | null>(loadSession);
     const [tab, setTab] = useState<Tab>("home");
+    const [pending, setPending] = useState<PendingQuestion | null>(null);
+
+    // "Ask about this" on the overview: open the assistant with the question.
+    function askAssistant(text: string) {
+        setPending({ id: Date.now(), text });
+        setTab("chat");
+    }
 
     function login(id: string) {
         saveSession(id);
@@ -38,6 +45,7 @@ function App() {
     function logout() {
         saveSession(null);
         setCustomerId(null);
+        setPending(null);
     }
 
     if (!customerId) {
@@ -58,10 +66,10 @@ function App() {
             </header>
 
             <main className="content">
-                {tab === "home" && <Home customerId={customerId} />}
+                {tab === "home" && <Home customerId={customerId} onAsk={askAssistant} />}
                 {/* Kept mounted so the conversation survives switching tabs. */}
                 <div className="tab-panel" hidden={tab !== "chat"}>
-                    <Chat key={customerId} customerId={customerId} />
+                    <Chat key={customerId} customerId={customerId} pending={pending} />
                 </div>
             </main>
 

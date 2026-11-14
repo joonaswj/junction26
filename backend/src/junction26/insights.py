@@ -186,18 +186,24 @@ def get_comparison(customer_id: str) -> pd.DataFrame:
     return rows.drop(columns="customer_id").reset_index(drop=True)
 
 
+def _eur(amount: float) -> str:
+    """Finnish style: 1 234 €."""
+    return f"{amount:,.0f}".replace(",", " ") + " €"
+
+
 def _text(row: pd.Series) -> str:
     cat = row["category"].lower()
     amount = abs(row["diff_eur"])
     more = row["diff_eur"] > 0
+    word = "more" if more else "less"
     text = (
-        f"You spend €{amount:,.0f} {'more' if more else 'less'} per month on {cat} "
-        f"than similar users (€{row['you_eur']:,.0f} vs €{row['peer_median_eur']:,.0f})"
+        f"You spend {_eur(amount)} {word} per month on {cat} than similar customers "
+        f"({_eur(row['you_eur'])} vs {_eur(row['peer_median_eur'])})"
     )
     if more:
-        text += f", that's €{amount * 12:,.0f} a year"
+        text += f". That adds up to {_eur(amount * 12)} a year"
     pct = min(row["percentile"] if more else 100 - row["percentile"], 99)
-    text += f". You spend {'more' if more else 'less'} than {pct:.0f}% of them."
+    text += f". You spend {word} than {pct:.0f}% of them."
     return text
 
 

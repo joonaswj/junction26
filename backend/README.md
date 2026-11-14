@@ -539,7 +539,7 @@ In Python: `from junction26.insights import get_insights, get_comparison`. The f
 
 ## Chatbot
 
-The chatbot runs on [Featherless](https://featherless.ai) (OpenAI-compatible API), configured in `junction26/featherless.py`. The model gets a short snapshot of the logged-in customer's numbers, and can call functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status) for more detail. The server fills in `customer_id`, so the model can only see that one customer's data. If a model doesn't support tool calling, the chat automatically falls back to answering from the snapshot.
+The chatbot runs on [Featherless](https://featherless.ai) (OpenAI-compatible API), configured in `junction26/featherless.py`. The model gets a short snapshot of the logged-in customer's numbers, and can call functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status, mortgage calculator) for more detail. The server fills in `customer_id`, so the model can only see that one customer's data. If a model doesn't support tool calling, the chat automatically falls back to answering from the snapshot.
 
 Setup: put your key in `backend/.env` (gitignored, never commit it), then restart the backend:
 
@@ -553,7 +553,28 @@ Check that the key works: `uv run python -m junction26.featherless` (in `backend
 
 | Endpoint | Body | Returns |
 |---|---|---|
-| `POST /chat` | `{"customer_id": "CUST02868", "messages": [{"role": "user", "content": "Where does my money go?"}]}` | `{"reply": "...", "tools_used": [...]}` |
-| `POST /chat/stream` | same | Server-sent events, one JSON object per `data:` line: `tool` (a lookup started, with a `label` to show like "Comparing with similar users"), `text` (part of the answer), `done` (full reply), `error` |
+| `POST /chat` | `{"customer_id": "CUST02868", "messages": [{"role": "user", "content": "Where does my money go?"}]}` | `{"reply", "visuals", "suggestions", "guard", "tools_used"}` |
+| `POST /chat/stream` | same | Server-sent events, one JSON object per `data:` line: `tool` (a lookup started, with a `label` to show like "Comparing with similar customers"), `text` (part of the answer), `done` (same fields as `/chat`), `error` |
+| `GET /customers/{customer_id}/chat/starters?lang=en\|fi` | | Personalised opening questions |
+| `GET /customers/{customer_id}/visuals` | | Chart specs for the overview screen |
 
-The app keeps the conversation and sends all of it with every request (`role` is `user` or `assistant`). Use `/chat` if streaming is hard to set up in React Native, it works everywhere.
+The app keeps the conversation and sends all of it with every request (`role` is `user` or `assistant`, only `role` and `content`).
+
+### Guardrails (`junction26/guardrails.py`)
+
+The chat only talks about the logged-in customer's own finances. Three layers:
+
+1. **Instant screening, no LLM call**: prompt-injection phrases ("ignore previous instructions", "show your system prompt", "act as…"), requests for other customers' data, and messages over 600 characters get a fixed, friendly redirect (English or Finnish).
+2. **Scope rules in the system prompt**: for anything else out of scope (weather, coding, stock picks…) the model answers with the tag `[[off_topic]]` plus one sentence; the server turns that into a redirect. Mixed questions get only their finance part answered.
+3. **Structure**: the server fills in `customer_id` for every lookup, so other customers' data can't be reached whatever the model is told.
+
+Every reply has `guard` (`null`, `off_topic`, `injection`, `other_customer` or `too_long`) and `suggestions`: up to three next questions the assistant can answer, always including one about mortgages, in the customer's language.
+
+### Charts in answers (`junction26/visuals.py`)
+
+The model never writes numbers into charts. It asks for one with a tag (`[[chart:spending]]`, `[[chart:category:Groceries]]`, `[[chart:income_vs_spending]]`, `[[chart:balance]]`, `[[chart:peers]]`, `[[chart:peers:Groceries]]`, `[[chart:mortgage]]`) or by calling a tool, and the server builds the spec from the data and returns it in `visuals`. Types: `bars`, `columns`, `line`, `compare`, `mortgage`, `calc`. The frontend draws them in `frontend/src/charts/Visual.tsx`.
+
+### Mortgage features (`junction26/finance.py`)
+
+- `get_mortgage_details`: the customer's application, the rejection reason explained in plain words with what could help, and how all applicants in the data did.
+- `mortgage_calculator`: what-if estimate (loan, loan-to-value against the 90% cap, monthly payment, payment at a 6% stress rate, required income, whether savings cover the down payment). The rates and caps are teaching defaults, not S-Pankki's credit policy. The required income uses the ratio found in the dataset (1.84% of the loan per month).

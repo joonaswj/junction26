@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import chat as chatbot
-from . import finance
+from . import finance, guardrails, visuals
 
 router = APIRouter()
 
@@ -58,6 +58,28 @@ def mortgage(customer_id: str):
     return _call(finance.get_mortgage_status, customer_id)
 
 
+@router.get("/customers/{customer_id}/visuals", tags=["app"])
+def dashboard_visuals(customer_id: str):
+    """Chart specs for the overview screen (same format as charts in chat replies)."""
+    _call(finance.get_profile, customer_id)
+    return {
+        "income_vs_spending": visuals.income_vs_spending(customer_id, 6),
+        "spending": visuals.spending(customer_id, 3),
+        "peers": visuals.peers(customer_id),
+        "mortgage": visuals.mortgage(customer_id),
+    }
+
+
+@router.get("/customers/{customer_id}/chat/starters", tags=["chat"])
+def chat_starters(customer_id: str, lang: Literal["en", "fi"] = "en"):
+    """Personalised opening questions for the chat screen."""
+    _call(finance.get_profile, customer_id)
+    return {
+        "suggestions": guardrails.starters(customer_id, lang),
+        "max_message_chars": guardrails.MAX_MESSAGE_CHARS,
+    }
+
+
 class Message(BaseModel):
     role: Literal["user", "assistant"]
     content: str
@@ -72,6 +94,11 @@ class ChatRequest(BaseModel):
     )
 
 
+def _json_default(value):
+    """numpy numbers -> plain Python for json.dumps."""
+    return value.item() if hasattr(value, "item") else str(value)
+
+
 def _history(req: ChatRequest) -> list[dict]:
     _call(finance.get_profile, req.customer_id)  # 404 if unknown
     return [m.model_dump() for m in req.messages]
@@ -79,7 +106,14 @@ def _history(req: ChatRequest) -> list[dict]:
 
 @router.post("/chat", tags=["chat"])
 def chat(req: ChatRequest):
-    """Ask the assistant. Returns {"reply", "tools_used"} when the answer is complete."""
+    """Ask the assistant. Returns when the answer is complete:
+
+    - `reply`: the text
+    - `visuals`: chart specs to draw under it (built from the customer's data)
+    - `suggestions`: next questions to offer as buttons
+    - `guard`: null, or why the message was redirected instead of answered
+      (`off_topic`, `injection`, `other_customer`, `too_long`)
+    """
     history = _history(req)
     try:
         return chatbot.chat(req.customer_id, history)
@@ -92,12 +126,12 @@ def chat_stream(req: ChatRequest):
     """Same as /chat, streamed as server-sent events (one JSON object per `data:` line).
 
     Event types: `tool` (a lookup started, with a label to show), `text`
-    (part of the answer), `done` (full reply), `error`.
+    (part of the answer), `done` (same fields as /chat), `error`.
     """
     history = _history(req)
 
     def events():
         for event in chatbot.stream_chat(req.customer_id, history):
-            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(event, ensure_ascii=False, default=_json_default)}\n\n"
 
     return StreamingResponse(events(), media_type="text/event-stream")
