@@ -95,6 +95,8 @@ export default function Home({ customerId, onAsk, onExplore, contextVersion, onC
                 <span className="muted small">Available balance</span>
             </section>
 
+            <HouseholdCard customerId={customerId} onChange={onContextChange} />
+
             <section>
                 <div className="card stats">
                     <Stat label="Income / mo" value={formatEur(overview.avg_monthly_income_eur)} />
@@ -110,9 +112,19 @@ export default function Home({ customerId, onAsk, onExplore, contextVersion, onC
                 </div>
                 {overview.savings_rate_pct !== null && (
                     <p className="explain">
-                        On average you keep <strong>{formatEur(saved)}</strong> a month: that's{" "}
-                        {Math.round(overview.savings_rate_pct)}&nbsp;% of your income, your{" "}
-                        <em>savings rate</em>. Averages are for the last 12 months.
+                        {saved >= 0 ? (
+                            <>
+                                On average you keep <strong>{formatEur(saved)}</strong> a month: that's{" "}
+                                {Math.round(overview.savings_rate_pct)}&nbsp;% of your income, your{" "}
+                                <em>savings rate</em>.
+                            </>
+                        ) : (
+                            <>
+                                On average you spend <strong>{formatEur(-saved)}</strong> more than you earn
+                                each month, so your balance shrinks.
+                            </>
+                        )}{" "}
+                        Averages are for the last 12 months.
                     </p>
                 )}
             </section>
@@ -125,7 +137,6 @@ export default function Home({ customerId, onAsk, onExplore, contextVersion, onC
 
             <ReflectCard budget={visuals.budget} onAsk={onAsk} />
 
-            <HouseholdCard customerId={customerId} onChange={onContextChange} />
 
             <section>
                 <SectionHead
