@@ -98,6 +98,7 @@ uv run uvicorn main:app --reload
 
 ```bash
 cd frontend
-npx expo start
+npm run dev
+
 ```
 
