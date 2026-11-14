@@ -2,9 +2,10 @@
 
     fixed      Fixed essentials: the same every month (housing).
     variable   Essentials that vary: you need them, but a month can be heavy
-               or light (groceries, utilities, health, transportation).
+               or light (groceries, utilities, health, transportation,
+               home & tech).
     free       Free-choice spending: restaurants, entertainment, lifestyle,
-               travel, home & tech.
+               travel.
 
 In the data, housing varies about 3 % from month to month, groceries about
 80 % and health about 160 %. So one month of an essential that varies says
@@ -36,13 +37,13 @@ COST_TYPES = {
         "short": "Varies",
         "description": "Costs you need, but some months are heavier than others. Shown as "
         "your 12-month average so one heavy month doesn't distort the picture.",
-        "categories": ["Groceries", "Utilities", "Health", "Transportation"],
+        "categories": ["Groceries", "Utilities", "Health", "Transportation", "Home & Tech"],
     },
     "free": {
         "label": "Free-choice spending",
         "short": "Free choice",
         "description": "Spending you decide on yourself.",
-        "categories": ["Restaurants", "Entertainment", "Lifestyle", "Travel", "Home & Tech"],
+        "categories": ["Restaurants", "Entertainment", "Lifestyle", "Travel"],
     },
 }
 YEAR = 12  # months used for essentials that vary

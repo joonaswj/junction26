@@ -169,6 +169,10 @@ class HouseholdIn(BaseModel):
         0, ge=0, le=household.MAX_PARTNER_SHARE,
         description="How much of the groceries the partner pays, estimated",
     )
+    partner_utilities_pct: int = Field(
+        0, ge=0, le=household.MAX_PARTNER_SHARE,
+        description="How much of the utility bills the partner pays, estimated",
+    )
 
 
 def _household_response(customer_id: str) -> dict:
@@ -195,7 +199,7 @@ def put_household(customer_id: str, body: HouseholdIn):
     """Save household details. Optional, used for fairer comparisons."""
     _call(finance.get_profile, customer_id)
     household.save(customer_id, body.partner, body.children, body.partner_housing_pct,
-                   body.partner_groceries_pct)
+                   body.partner_groceries_pct, body.partner_utilities_pct)
     return _household_response(customer_id)
 
 

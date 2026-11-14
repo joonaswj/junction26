@@ -205,7 +205,7 @@ def explore(
                 how = (f"scaled up to your whole household (you said your partner pays about "
                        f"{home.partner_share_pct(c)} %) and " if home.partner else "")
                 notes.append(
-                    f"Your {c.lower()} are {how}divided by your household's size "
+                    f"Your {c.lower()} spending is {how}divided by your household's size "
                     f"({home.consumption_units:.1f} consumption units: first adult 1, second "
                     "adult 0.5, each child 0.3), so both sides are per person. Other costs are "
                     "shown as they are."

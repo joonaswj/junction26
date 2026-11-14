@@ -623,8 +623,8 @@ Every spending category has a cost type:
 | Type | Categories | How a "per month" figure is calculated |
 |---|---|---|
 | Fixed essentials | Housing | Average of the selected period |
-| Essentials that vary | Groceries, Utilities, Health, Transportation | Always the customer's **12-month average** |
-| Free-choice spending | Restaurants, Entertainment, Lifestyle, Travel, Home & Tech | Average of the selected period |
+| Essentials that vary | Groceries, Utilities, Health, Transportation, Home & Tech | Always the customer's **12-month average** |
+| Free-choice spending | Restaurants, Entertainment, Lifestyle, Travel | Average of the selected period |
 
 In the data, housing varies about 3 % from month to month, groceries about 80 % and health about 160 %, so one month of an essential that varies says little. Wherever such a cost is shown per month or compared with others, the 12-month average is used whatever period is selected, and similar customers are measured the same way. Looking inside a single month shows the real amounts, each next to the customer's usual month ("Groceries 1 224 €, usually 399 €").
 
@@ -640,17 +640,17 @@ The assistant can talk about the customer's own saving and investing (`finance.g
 
 ### Household details (`junction26/household.py`)
 
-A bank account shows one person's payments, not a household's life: someone whose partner buys the groceries looks like they barely eat. So the customer can optionally say whether they live with a partner, how many children are at home, and with two sliders roughly how much of the **housing** and of the **groceries** the partner pays (couples often split these differently). Only those two count as shared. The form shows what each slider position means in euros for the whole household. It is self-reported, never required, editable and deletable, and stored in `backend/data/household.json` (not in git).
+A bank account shows one person's payments, not a household's life: someone whose partner buys the groceries looks like they barely eat. So the customer can optionally say whether they live with a partner, how many children are at home, and with three sliders roughly how much of the **housing**, the **groceries** and the **utilities** the partner pays (couples often split these differently). Only those three count as shared. The form shows what each slider position means in euros for the whole household. It is self-reported, never required, editable and deletable, and stored in `backend/data/household.json` (not in git).
 
 | Endpoint | Does |
 |---|---|
-| `GET /customers/{customer_id}/household` | The details (or `null`) and what this account pays for housing and groceries in a usual month |
-| `PUT /customers/{customer_id}/household` | Save `{"partner": true, "children": 2, "partner_housing_pct": 50, "partner_groceries_pct": 80}` |
+| `GET /customers/{customer_id}/household` | The details (or `null`) and what this account pays for housing, groceries and utilities in a usual month |
+| `PUT /customers/{customer_id}/household` | Save `{"partner": true, "children": 2, "partner_housing_pct": 50, "partner_groceries_pct": 80, "partner_utilities_pct": 50}` |
 | `DELETE /customers/{customer_id}/household` | Remove them |
 
 What it changes:
 
 - **The Finnish benchmark** becomes "households like yours" (Statistics Finland table 14ph: people living alone, couples without children, single-parent households, two-parent families with children, over-64 households) instead of "people your age".
-- **Groceries** are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Housing is not compared with the Finnish average at all (see above), but its share is used to explain insights.
+- **Groceries and utilities** are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Housing is not compared with the Finnish average at all (see above), but its share is used to explain insights.
 - **Insights** that the household explains get an `expected_because` note ("Your partner pays about 80 % of your groceries, so this account shows only part of what your household spends on it") and are shown after the others.
 - **The assistant and the suggested questions** know the details. Without them, a comparison that would benefit shows an invitation to add them.

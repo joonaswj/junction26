@@ -244,6 +244,7 @@ export type Household = {
     children: number;
     partner_housing_pct: number;
     partner_groceries_pct: number;
+    partner_utilities_pct: number;
     description: string;
     consumption_units: number;
 };
@@ -256,7 +257,7 @@ export type HouseholdInfo = {
 };
 export type HouseholdInput = Pick<
     Household,
-    "partner" | "children" | "partner_housing_pct" | "partner_groceries_pct"
+"partner" | "children" | "partner_housing_pct" | "partner_groceries_pct" | "partner_utilities_pct"
 >;
 
 async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {

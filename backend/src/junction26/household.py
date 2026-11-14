@@ -8,11 +8,13 @@ can tell us, if they want:
     children                children living at home (0-6)
     partner_housing_pct     how much of the housing costs the partner pays
     partner_groceries_pct   how much of the groceries the partner pays
+    partner_utilities_pct   how much of the utility bills the partner pays
 
-The two shares are separate sliders (0-90 %), because couples often split
-them differently: rent half and half, but one of them does the shopping.
-Only housing and groceries are treated as shared. Everything else counts as
-the customer's own spending.
+The three shares are separate sliders (0-90 %), because couples often split
+them differently: rent half and half, one of them does the shopping, the
+electricity contract is in the other's name. Only housing, groceries and
+utilities are treated as shared. Everything else counts as the customer's
+own spending.
 
 This is the customer's own, self-reported data: optional, editable, and
 deletable at any time. It is stored in backend/data/household.json (not in
@@ -36,7 +38,7 @@ from dataclasses import asdict, dataclass
 from .data import data_dir
 
 # The costs a couple typically shares, each with its own slider.
-SHARED_CATEGORIES = ["Housing", "Groceries"]
+SHARED_CATEGORIES = ["Housing", "Groceries", "Utilities"]
 MAX_PARTNER_SHARE = 90  # above this the account says too little to scale from
 MAX_CHILDREN = 6
 
@@ -49,13 +51,15 @@ class Household:
     children: int = 0
     partner_housing_pct: int = 0  # only meaningful with a partner
     partner_groceries_pct: int = 0
+    partner_utilities_pct: int = 0
 
     def partner_share_pct(self, category: str) -> int:
         """How much of this category the partner pays, in percent."""
         if not self.partner:
             return 0
         return {"Housing": self.partner_housing_pct,
-                "Groceries": self.partner_groceries_pct}.get(category, 0)
+                "Groceries": self.partner_groceries_pct,
+                "Utilities": self.partner_utilities_pct}.get(category, 0)
 
     def my_share(self, category: str) -> float:
         """Share of the household's cost in this category that goes through this account."""
@@ -74,8 +78,9 @@ class Household:
         elif not self.partner:
             who = "You live alone"
         if self.partner:
-            who += (f". Your partner pays about {self.partner_housing_pct} % of housing and "
-                    f"{self.partner_groceries_pct} % of groceries")
+            who += (f". Your partner pays about {self.partner_housing_pct} % of housing, "
+                    f"{self.partner_groceries_pct} % of groceries and "
+                    f"{self.partner_utilities_pct} % of utilities")
         return who + "."
 
 
@@ -99,6 +104,7 @@ def get(customer_id: str) -> Household | None:
         old = raw.pop("partner_share_pct")
         raw.setdefault("partner_housing_pct", old)
         raw.setdefault("partner_groceries_pct", old)
+        raw.setdefault("partner_utilities_pct", old)
     return Household(**raw)
 
 
@@ -107,13 +113,14 @@ def _clamp(pct: int) -> int:
 
 
 def save(customer_id: str, partner: bool, children: int, partner_housing_pct: int,
-         partner_groceries_pct: int) -> Household:
+         partner_groceries_pct: int, partner_utilities_pct: int = 0) -> Household:
     children = max(0, min(int(children), MAX_CHILDREN))
     household = Household(
         bool(partner),
         children,
         _clamp(partner_housing_pct) if partner else 0,
         _clamp(partner_groceries_pct) if partner else 0,
+        _clamp(partner_utilities_pct) if partner else 0,
     )
     with _lock:
         everyone = _load_all()

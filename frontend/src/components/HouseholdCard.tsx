@@ -23,11 +23,13 @@ const EMPTY: HouseholdInput = {
     children: 0,
     partner_housing_pct: 50,
     partner_groceries_pct: 50,
+    partner_utilities_pct: 50,
 };
-// The two costs a couple shares, each with its own slider.
+// The costs a couple shares, each with its own slider.
 const SLIDERS = [
     { field: "partner_housing_pct", category: "Housing", label: "housing" },
     { field: "partner_groceries_pct", category: "Groceries", label: "groceries" },
+    { field: "partner_utilities_pct", category: "Utilities", label: "utilities" },
 ] as const;
 
 function wasDismissed(): boolean {
@@ -40,8 +42,8 @@ function wasDismissed(): boolean {
 
 /**
  * Optional household details for fairer comparisons: who shares the costs,
- * and roughly how much of the housing and of the groceries a partner pays
- * (two sliders, because couples often split them differently).
+ * and roughly how much of the housing, groceries and utilities a partner
+ * pays (one slider each, because couples often split them differently).
  * Never required. The customer can change or remove their answers any time.
  */
 export default function HouseholdCard({ customerId, onChange, highlight }: Props) {
@@ -69,6 +71,7 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
                       children: current.children,
                       partner_housing_pct: current.partner_housing_pct,
                       partner_groceries_pct: current.partner_groceries_pct,
+                      partner_utilities_pct: current.partner_utilities_pct,
                   }
                 : // Keep the sliders in the middle in case they add a partner.
                   { ...EMPTY, children: current?.children ?? 0 },
@@ -172,8 +175,8 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
                     })}
                 {draft.partner && (
                     <p className="muted small">
-                        Only housing and groceries count as shared. Everything else is treated as your own
-                        spending.
+                        Only housing, groceries and utilities count as shared. Everything else is treated
+                        as your own spending.
                     </p>
                 )}
 
@@ -222,9 +225,9 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
         <section className={`card household invite${highlight ? " highlight" : ""}`}>
             <strong>Make your comparisons fairer</strong>
             <p className="muted small">
-                Your account only shows what you pay yourself. If you share housing or groceries with a
-                partner, or have children at home, tell us and we'll compare you with households like yours.
-                It's optional.
+                Your account only shows what you pay yourself. If you share housing, groceries or bills
+                with a partner, or have children at home, tell us and we'll compare you with households like
+                yours. It's optional.
             </p>
             <div className="button-row">
                 <button className="btn-primary" onClick={startEditing}>

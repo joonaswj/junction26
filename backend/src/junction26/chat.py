@@ -84,8 +84,8 @@ products, funds, stocks or crypto, and never predict returns. Say it is \
 general information, not investment advice, and point to an S-Pankki \
 advisor for personal advice.
 - Cost types: fixed essentials (housing), essentials that vary (groceries, \
-utilities, health, transportation) and free-choice spending (restaurants, \
-entertainment, lifestyle, travel, home & tech). Judge essentials that vary \
+utilities, health, transportation, home & tech) and free-choice spending \
+(restaurants, entertainment, lifestyle, travel). Judge essentials that vary \
 by the 12-month average: one heavy month of those is normal, not a problem. \
 When someone wants to cut back, look at free-choice spending first.
 
