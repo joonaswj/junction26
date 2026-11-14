@@ -22,8 +22,10 @@ MixedSignals-tiimin projekti
 
    Linux ja macOS terminaalissa: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
 
-9) Lataa python virtuaaliympäristöön ja synkronisoi environment manager:
+9) Lataa python virtuaaliympäristöön ja synkronisoi environment manager. Aja komennot `backend`-kansiossa (siellä on `pyproject.toml`), ei projektin juuressa. Älä tee virtuaaliympäristöä käsin (`python -m venv`), uv tekee sen `backend/.venv`-kansioon:
    ```
+   cd backend
+
    uv python install
    
    uv sync --locked
@@ -262,25 +264,26 @@ Replace <GITHUB_REPOSITORY_URL> with the actual repository URL.
 
 4. Install backend dependencies
 
-Make sure you're in the project root, where pyproject.toml and uv.lock are located.
-
-Run:
+pyproject.toml and uv.lock are in the backend directory, so run uv from there:
 
 bash
+cd backend
 uv sync
 
 
 This automatically:
 
-Creates a virtual environment (.venv).
+Creates a virtual environment (backend/.venv).
 Installs the Python dependencies.
 Uses uv.lock to maintain consistent dependency versions.
 
-Important: You do not need to run uv init or manually install FastAPI. The dependencies are already defined in the repository.
+Important: You do not need to run uv init, create a venv yourself (python -m venv) or manually install FastAPI. The dependencies are already defined in the repository.
+
+In VS Code, pick backend/.venv/bin/python as the interpreter (Command Palette → Python: Select Interpreter), otherwise imports show as errors.
 
 5. Install frontend dependencies
 
-Navigate into the frontend directory:
+From the project root, navigate into the frontend directory:
 
 bash
 cd frontend
@@ -294,21 +297,17 @@ npm install
 
 This installs all dependencies specified in package.json and uses package-lock.json to maintain consistent versions.
 
-Return to the project root:
-
-bash
-cd ..
-
 6. Run the application
 
 You need TWO terminals running simultaneously.
 
 Terminal 1 – FastAPI Backend
 
-From the project root:
+From the backend directory:
 
 bash
-uv run fastapi dev backend/src/main.py --host 0.0.0.0
+cd backend
+uv run fastapi dev src/main.py --host 0.0.0.0
 
 
 The backend will run at:
@@ -371,20 +370,22 @@ Then create a Pull Request on GitHub.
 When dependencies change
 Python dependencies
 
-If someone adds a Python dependency using:
+If someone adds a Python dependency using (in the backend directory):
 
 bash
+cd backend
 uv add package-name
 
 
 They should commit both:
 
-pyproject.toml
-uv.lock
+backend/pyproject.toml
+backend/uv.lock
 
 Other teammates run:
 
 bash
+cd backend
 uv sync
 
 Frontend dependencies
@@ -417,7 +418,7 @@ Stop the previous server with Ctrl+C.
 Alternatively, use another port:
 
 bash
-uv run fastapi dev backend/src/main.py --port 8001
+uv run fastapi dev src/main.py --port 8001
 
 npm command not found
 
@@ -444,8 +445,8 @@ Whenever you want to work on Junction26:
 Terminal 1 – Backend:
 
 bash
-cd junction26
-uv run fastapi dev backend/src/main.py --host 0.0.0.0
+cd junction26/backend
+uv run fastapi dev src/main.py --host 0.0.0.0
 
 
 Terminal 2 – Frontend:
