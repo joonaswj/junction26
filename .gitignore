@@ -2,3 +2,6 @@
 __pycache__/
 *.pyc
 .vscode
+
+# S-Pankki dataset (download with: uv run python -m junction26.data.download)
+backend/data/
