@@ -328,6 +328,56 @@
 }
 
 /* Chat */
+.tab-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.tab-panel[hidden] {
+    display: none;
+}
+
+.typing {
+    display: flex;
+    gap: 4px;
+    padding: 14px 16px;
+}
+
+.typing span {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: typing 1.2s infinite ease-in-out;
+}
+
+.typing span:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.typing span:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+@keyframes typing {
+    0%,
+    60%,
+    100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+    30% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
+.chat-error {
+    align-self: stretch;
+}
+
 .chat {
     flex: 1;
     display: flex;

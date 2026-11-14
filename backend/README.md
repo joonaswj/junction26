@@ -539,15 +539,17 @@ In Python: `from junction26.insights import get_insights, get_comparison`. The f
 
 ## Chatbot
 
-The chatbot uses OpenAI with tool calling: the model calls functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status) for the logged-in customer and answers from the results. The server fills in `customer_id`, so the model can only see that one customer's data.
+The chatbot runs on [Featherless](https://featherless.ai) (OpenAI-compatible API), configured in `junction26/featherless.py`. The model gets a short snapshot of the logged-in customer's numbers, and can call functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status) for more detail. The server fills in `customer_id`, so the model can only see that one customer's data. If a model doesn't support tool calling, the chat automatically falls back to answering from the snapshot.
 
-Setup: create `backend/.env` (gitignored, never commit it) with
+Setup: put your key in `backend/.env` (gitignored, never commit it), then restart the backend:
 
 ```
-OPENAI_API_KEY=sk-...
-# optional, default gpt-5.4-mini
-OPENAI_MODEL=gpt-5.4-mini
+FEATHERLESS_API_KEY=...
+# optional, default deepseek-ai/DeepSeek-V4-Flash (supports tool calling)
+FEATHERLESS_MODEL=deepseek-ai/DeepSeek-V4-Flash
 ```
+
+Check that the key works: `uv run python -m junction26.featherless` (in `backend`). If only `OPENAI_API_KEY` is set, OpenAI is used instead.
 
 | Endpoint | Body | Returns |
 |---|---|---|

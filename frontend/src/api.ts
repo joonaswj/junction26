@@ -63,6 +63,22 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export const getDemoCustomers = () => get<DemoCustomer[]>("/demo-customers?limit=10");
 
+export type ChatReply = { reply: string; tools_used: string[] };
+
+// Send the whole conversation, get the assistant's next message.
+export async function sendChat(customerId: string, messages: ChatMessage[]): Promise<ChatReply> {
+    const response = await fetch(`${API_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customer_id: customerId, messages }),
+    });
+    if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.detail ?? `Chat failed: ${response.status}`);
+    }
+    return response.json() as Promise<ChatReply>;
+}
+
 // Dummy login: true if the customer exists.
 export async function customerExists(id: string): Promise<boolean> {
     const response = await fetch(`${API_URL}/customers/${encodeURIComponent(id)}`);

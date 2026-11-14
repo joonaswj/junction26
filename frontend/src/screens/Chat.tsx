@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { ChatMessage } from "../api";
+import { sendChat, type ChatMessage } from "../api";
 
 const SUGGESTIONS = [
     "Where does my money go?",
@@ -7,22 +7,35 @@ const SUGGESTIONS = [
     "How much did I spend on restaurants last month?",
 ];
 
-// Chat UI only. Messages are shown but not sent to the backend yet.
-// To connect: POST { customer_id, messages } to /chat and append the reply.
-export default function Chat() {
+type Props = { customerId: string };
+
+export default function Chat({ customerId }: Props) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
+    const [waiting, setWaiting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const endRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         endRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, [messages, waiting, error]);
 
-    function send(text: string) {
+    async function send(text: string) {
         const content = text.trim();
-        if (!content) return;
-        setMessages((m) => [...m, { role: "user", content }]);
+        if (!content || waiting) return;
+        const history: ChatMessage[] = [...messages, { role: "user", content }];
+        setMessages(history);
         setInput("");
+        setError(null);
+        setWaiting(true);
+        try {
+            const { reply } = await sendChat(customerId, history);
+            setMessages([...history, { role: "assistant", content: reply }]);
+        } catch {
+            setError("Sorry, I couldn't answer right now. Please try again.");
+        } finally {
+            setWaiting(false);
+        }
     }
 
     function onSubmit(e: FormEvent) {
@@ -55,6 +68,14 @@ export default function Chat() {
                         {m.content}
                     </div>
                 ))}
+                {waiting && (
+                    <div className="bubble bubble-assistant typing" aria-label="Assistant is typing">
+                        <span />
+                        <span />
+                        <span />
+                    </div>
+                )}
+                {error && <p className="form-error chat-error">{error}</p>}
                 <div ref={endRef} />
             </div>
 
@@ -65,7 +86,7 @@ export default function Chat() {
                     placeholder="Ask something…"
                     aria-label="Message"
                 />
-                <button type="submit" disabled={!input.trim()}>
+                <button type="submit" disabled={!input.trim() || waiting}>
                     Send
                 </button>
             </form>

@@ -58,7 +58,11 @@ function App() {
             </header>
 
             <main className="content">
-                {tab === "home" ? <Home customerId={customerId} /> : <Chat />}
+                {tab === "home" && <Home customerId={customerId} />}
+                {/* Kept mounted so the conversation survives switching tabs. */}
+                <div className="tab-panel" hidden={tab !== "chat"}>
+                    <Chat key={customerId} customerId={customerId} />
+                </div>
             </main>
 
             <nav className="tabbar">
