@@ -22,8 +22,10 @@ MixedSignals-tiimin projekti
 
    Linux ja macOS terminaalissa: ```curl -LsSf https://astral.sh/uv/install.sh | sh```
 
-9) Lataa python virtuaaliympäristöön ja synkronisoi environment manager:
+9) Lataa python virtuaaliympäristöön ja synkronisoi environment manager. Aja komennot `backend`-kansiossa (siellä on `pyproject.toml`), ei projektin juuressa. Älä tee virtuaaliympäristöä käsin (`python -m venv`), uv tekee sen `backend/.venv`-kansioon:
    ```
+   cd backend
+
    uv python install
    
    uv sync --locked
@@ -89,6 +91,380 @@ if __name__ == "__main__":
 
   Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
 
+Junction26 – Development Environment Setup
+
+This guide explains how to set up and run Junction26 on Windows, macOS and Ubuntu/Linux.
+
+1. Prerequisites
+
+You need to install:
+
+Git – Version control.
+Python 3.11+ – Backend.
+uv – Python package manager.
+Node.js (LTS) – JavaScript runtime.
+npm – Frontend package manager (included with Node.js).
+2. Install the prerequisites
+Windows
+A. Install Git
+
+Download and install:
+
+https://git-scm.com/downloads/win
+
+B. Install Python
+
+Download Python 3.11 or newer:
+
+https://www.python.org/downloads/
+
+During installation, enable Add Python to PATH.
+
+Verify:
+
+powershell
+python --version
+
+C. Install uv
+
+Open PowerShell:
+
+powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+
+Restart PowerShell and verify:
+
+powershell
+uv --version
+
+D. Install Node.js
+
+Download the LTS version:
+
+https://nodejs.org/
+
+Verify:
+
+powershell
+node -v
+npm -v
+
+macOS
+A. Install Homebrew (if not already installed)
+
+Open Terminal:
+
+bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+
+Follow the installation instructions.
+
+B. Install Git and Python
+bash
+brew install git python
+
+C. Install uv
+bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+
+Restart Terminal or reload your shell:
+
+bash
+source ~/.zshrc
+
+
+Verify:
+
+bash
+uv --version
+
+D. Install Node.js
+bash
+brew install node
+
+
+Verify:
+
+bash
+node -v
+npm -v
+
+Ubuntu / Linux
+A. Install Git, Python and other requirements
+bash
+sudo apt update
+
+sudo apt install -y git curl python3 python3-venv
+
+B. Install uv
+bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+
+Reload your terminal:
+
+bash
+source ~/.bashrc
+
+
+Verify:
+
+bash
+uv --version
+
+C. Install Node.js
+
+We recommend using NVM.
+
+Install NVM:
+
+bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+
+
+Reload your terminal:
+
+bash
+source ~/.bashrc
+
+
+Install the latest LTS version:
+
+bash
+nvm install --lts
+nvm use --lts
+
+
+Verify:
+
+bash
+node -v
+npm -v
+
+3. Clone the GitHub repository
+
+The following steps are identical for all operating systems.
+
+Open a terminal (PowerShell on Windows, Terminal on macOS/Linux).
+
+bash
+git clone <GITHUB_REPOSITORY_URL>
+
+
+Navigate into the project:
+
+bash
+cd junction26
+
+
+Replace <GITHUB_REPOSITORY_URL> with the actual repository URL.
+
+4. Install backend dependencies
+
+pyproject.toml and uv.lock are in the backend directory, so run uv from there:
+
+bash
+cd backend
+uv sync
+
+
+This automatically:
+
+Creates a virtual environment (backend/.venv).
+Installs the Python dependencies.
+Uses uv.lock to maintain consistent dependency versions.
+
+Important: You do not need to run uv init, create a venv yourself (python -m venv) or manually install FastAPI. The dependencies are already defined in the repository.
+
+In VS Code, pick backend/.venv/bin/python as the interpreter (Command Palette → Python: Select Interpreter), otherwise imports show as errors.
+
+5. Install frontend dependencies
+
+From the project root, navigate into the frontend directory:
+
+bash
+cd frontend
+
+
+Install dependencies:
+
+bash
+npm install
+
+
+This installs all dependencies specified in package.json and uses package-lock.json to maintain consistent versions.
+
+6. Run the application
+
+You need TWO terminals running simultaneously.
+
+Terminal 1 – FastAPI Backend
+
+From the backend directory:
+
+bash
+cd backend
+uv run fastapi dev src/main.py --host 0.0.0.0
+
+
+The backend will run at:
+
+API: http://localhost:8000
+Swagger documentation: http://localhost:8000/docs
+Terminal 2 – React Frontend
+
+Navigate into the frontend:
+
+bash
+cd frontend
+
+
+Start Vite:
+
+bash
+npm run dev
+
+
+The frontend will run at:
+
+http://localhost:5173
+
+7. Verify the installation
+
+Open your browser and check:
+
+Service	URL
+React frontend	http://localhost:5173
+FastAPI backend	http://localhost:8000
+Swagger API docs	http://localhost:8000/docs
+
+If everything works, the React frontend should be able to communicate with FastAPI.
+
+8. Working with Git
+
+Before starting development, get the latest changes:
+
+bash
+git pull
+
+
+Create a feature branch:
+
+bash
+git checkout -b feature/your-feature-name
+
+
+After making changes:
+
+bash
+git add .
+git commit -m "Describe your changes"
+git push origin feature/your-feature-name
+
+
+Then create a Pull Request on GitHub.
+
+When dependencies change
+Python dependencies
+
+If someone adds a Python dependency using (in the backend directory):
+
+bash
+cd backend
+uv add package-name
+
+
+They should commit both:
+
+backend/pyproject.toml
+backend/uv.lock
+
+Other teammates run:
+
+bash
+cd backend
+uv sync
+
+Frontend dependencies
+
+If someone installs a frontend dependency:
+
+bash
+cd frontend
+npm install package-name
+
+
+They should commit both:
+
+package.json
+package-lock.json
+
+Other teammates run:
+
+bash
+cd frontend
+npm install
+
+9. Common problems
+Port 8000 is already in use
+
+Another FastAPI instance might already be running.
+
+Stop the previous server with Ctrl+C.
+
+Alternatively, use another port:
+
+bash
+uv run fastapi dev src/main.py --port 8001
+
+npm command not found
+
+Node.js is not installed or isn't available in your PATH.
+
+Reinstall Node.js and restart your terminal.
+
+uv command not found
+
+Restart your terminal. If necessary, ensure the uv installation directory is included in your PATH.
+
+Frontend cannot connect to backend
+
+Check that:
+
+Both servers are running.
+FastAPI is running on port 8000.
+The frontend API URL is http://localhost:8000.
+FastAPI CORS allows http://localhost:5173.
+10. Quick Start (After Initial Setup)
+
+Whenever you want to work on Junction26:
+
+Terminal 1 – Backend:
+
+bash
+cd junction26/backend
+uv run fastapi dev src/main.py --host 0.0.0.0
+
+
+Terminal 2 – Frontend:
+
+bash
+cd junction26/frontend
+npm run dev
+
+
+Open http://localhost:5173.
+
+You're ready to develop!
+
+Happy hacking! 🚀
+# S-Pankki data
+
+The challenge data comes from https://github.com/hackjunction/Junction-2026-S-pankki. The CSVs are **not** committed to this repo (the transactions file is ~350 MB). Download them once, from the `backend` directory:
+
 #Ohjelman backendin ja frontendin ajaminen
 ```bash
 cd backend 
@@ -102,3 +478,22 @@ npm run dev
 
 ```
 
+| Endpoint | Returns |
+|---|---|
+| `GET /data/summary` | Counts, date range, categories |
+| `GET /customers?limit=&offset=&has_mortgage=` | Customers |
+| `GET /customers/{customer_id}` | One customer + their mortgage applications |
+| `GET /customers/{customer_id}/transactions?start=&end=&category=&limit=&offset=` | Their transactions |
+| `GET /mortgages?decision=approved\|rejected` | Mortgage application outcomes |
+| `GET /mortgages/{mortgage_customer_id}/events` | Event history for one application |
+
+## Spending insights vs similar users
+
+`junction26/insights.py` compares each customer's spending (last 12 months, EUR per month) to similar users: same age band and income band, or same income band only if that group has fewer than 20 people. Customers with fewer than 12 card purchases a month are flagged `low_activity` (they probably use another card too). They are left out of peer stats and don't get "you spend less" insights.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /customers/{customer_id}/insights?limit=5` | Biggest differences vs peers, with ready-made text like "You spend €222 more per month on groceries than similar users…" |
+| `GET /customers/{customer_id}/peer-comparison` | Every category: you vs peer median, difference, percentile |
+
+In Python: `from junction26.insights import get_insights, get_comparison`. The first call takes a few seconds, then it's cached.
