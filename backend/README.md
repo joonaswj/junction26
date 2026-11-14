@@ -465,7 +465,14 @@ Happy hacking! 🚀
 
 The challenge data comes from https://github.com/hackjunction/Junction-2026-S-pankki. The CSVs are **not** committed to this repo (the transactions file is ~350 MB). Download them once, from the `backend` directory:
 
-#Ohjelman backendin ja frontendin ajaminen
+```bash
+cd backend
+uv run python -m junction26.data.download
+```
+
+This saves them to `backend/data/raw/` (gitignored) and checks that the large file downloaded correctly. No git-lfs needed.
+
+# Ohjelman backendin ja frontendin ajaminen
 ```bash
 cd backend 
 
@@ -476,6 +483,25 @@ uv run uvicorn main:app --reload
 cd frontend
 npx expo start
 ```
+
+## Using the data in Python
+
+```python
+from junction26.data import (
+    load_transactions,       # ~3.6M rows: customer_id, tx_date, category, tx_amount_eur, ...
+    load_customers,          # customer_id, customer_postal_code, customer_age
+    load_mortgage_events,    # mortgage application event history (mortgage_customer_id)
+    load_mortgage_outcomes,  # links mortgage_customer_id -> customer_id + final decision
+)
+
+tx = load_transactions(["CUST04457"])  # or load_transactions() for everything
+```
+
+The first `load_transactions()` takes a few seconds; after that a cached copy in `backend/data/cache/` loads instantly.
+
+## Raw data endpoints
+
+All endpoints are listed at http://localhost:8000/docs when the backend is running.
 
 | Endpoint | Returns |
 |---|---|
@@ -496,3 +522,34 @@ npx expo start
 | `GET /customers/{customer_id}/peer-comparison` | Every category: you vs peer median, difference, percentile |
 
 In Python: `from junction26.insights import get_insights, get_comparison`. The first call takes a few seconds, then it's cached.
+
+## App endpoints (dashboard)
+
+| Endpoint | Returns |
+|---|---|
+| `GET /demo-customers?limit=10` | Customers with full histories to "log in" as, half with a mortgage application |
+| `GET /customers/{customer_id}/overview` | Balance, average monthly income and spending, savings rate, top categories |
+| `GET /customers/{customer_id}/spending?months=3&category=` | Spending per category, or one category per month + top merchants |
+| `GET /customers/{customer_id}/trend?months=12` | Month by month: income, spending, invested, net, end balance |
+| `GET /customers/{customer_id}/mortgage` | Mortgage application outcome and recent events |
+
+"Today" in the data is 2026-09-30, the last transaction date. "Last 3 months" means up to that date.
+
+## Chatbot
+
+The chatbot uses OpenAI with tool calling: the model calls functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status) for the logged-in customer and answers from the results. The server fills in `customer_id`, so the model can only see that one customer's data.
+
+Setup: create `backend/.env` (gitignored, never commit it) with
+
+```
+OPENAI_API_KEY=sk-...
+# optional, default gpt-5.4-mini
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+| Endpoint | Body | Returns |
+|---|---|---|
+| `POST /chat` | `{"customer_id": "CUST02868", "messages": [{"role": "user", "content": "Where does my money go?"}]}` | `{"reply": "...", "tools_used": [...]}` |
+| `POST /chat/stream` | same | Server-sent events, one JSON object per `data:` line: `tool` (a lookup started, with a `label` to show like "Comparing with similar users"), `text` (part of the answer), `done` (full reply), `error` |
+
+The app keeps the conversation and sends all of it with every request (`role` is `user` or `assistant`). Use `/chat` if streaming is hard to set up in React Native, it works everywhere.
