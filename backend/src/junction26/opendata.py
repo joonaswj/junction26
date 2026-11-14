@@ -24,7 +24,9 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-TABLE_URL = "https://pxdata.stat.fi/PXWeb/api/v1/en/StatFin/ktutk/14q4.px"
+API = "https://pxdata.stat.fi/PXWeb/api/v1/en/StatFin/ktutk/"
+TABLE_URL = API + "14q4.px"  # by age of reference person
+HOUSEHOLD_TABLE_URL = API + "14ph.px"  # by type of household
 SOURCE_PAGE = "https://pxdata.stat.fi/PxWeb/pxweb/en/StatFin/StatFin__ktutk/14q4.px/"
 MEASURE = "kulukk_kt_hk_2_1"  # per consumption unit, current prices, EUR per month
 YEAR = "2022"
@@ -84,6 +86,24 @@ CATEGORY_MAP: dict[str, dict] = {
 
 AGE_GROUPS = ["17-24", "25-34", "35-44", "45-54", "55-64", "65-74", "75-84", "85-"]
 
+# Household types in table 14ph, with how we describe them to the customer.
+HOUSEHOLD_TYPES = {
+    "1": "people living alone",
+    "2": "couples without children",
+    "3": "single-parent households",
+    "4": "two-parent families with children",
+    "5": "households of people over 64",
+}
+
+
+def household_type(age: int, partner: bool, children: int) -> str:
+    """Statistics Finland household type code for a customer's household."""
+    if children > 0:
+        return "4" if partner else "3"
+    if age >= 65:
+        return "5"
+    return "2" if partner else "1"
+
 
 def age_group(age: int) -> str:
     """Statistics Finland age group for a customer's age."""
@@ -94,46 +114,53 @@ def age_group(age: int) -> str:
     return AGE_GROUPS[0]  # under 17: use the youngest group
 
 
-def fetch() -> dict:
-    """Download the figures from Statistics Finland's open API."""
+def _query(url: str, group_code: str, groups: list[str]) -> dict[str, dict[str, float]]:
+    """One table from Statistics Finland's open API: {group: {coicop: eur per month}}."""
     codes = sorted({c for m in CATEGORY_MAP.values() for c in m["coicop"]} | {"0"})
     query = {
         "query": [
             {"code": "timeperiod_y", "selection": {"filter": "item", "values": [YEAR]}},
             {"code": "coicop_46_20231201", "selection": {"filter": "item", "values": codes}},
-            {
-                "code": "ikaryhma_10_20180101",
-                "selection": {"filter": "item", "values": ["SSS", *AGE_GROUPS]},
-            },
+            {"code": group_code, "selection": {"filter": "item", "values": groups}},
             {"code": "contentscode", "selection": {"filter": "item", "values": [MEASURE]}},
         ],
         "response": {"format": "json"},
     }
     request = urllib.request.Request(
-        TABLE_URL,
+        url,
         data=json.dumps(query).encode(),
         headers={"Content-Type": "application/json", "User-Agent": "junction26-hackathon-app"},
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         raw = json.load(response)
 
-    # Rows look like {"key": [year, coicop, age], "values": ["123.4"]}.
-    by_age: dict[str, dict[str, float]] = {}
+    # Rows look like {"key": [year, coicop, group], "values": ["123.4"]}.
+    table: dict[str, dict[str, float]] = {}
     for row in raw["data"]:
-        _, coicop, age = row["key"]
+        _, coicop, group = row["key"]
         value = row["values"][0]
         if value not in ("", ".", "..", "..."):  # missing-value markers
-            by_age.setdefault(age, {})[coicop] = float(value)
+            table.setdefault(group, {})[coicop] = float(value)
+    return table
 
+
+def fetch() -> dict:
+    """Download the figures from Statistics Finland's open API."""
     return {
         "source": "Statistics Finland, Household Budget Survey",
         "table": "14q4: Household consumption expenditure by age of reference person",
+        "household_table": "14ph: Household consumption expenditure by type of household",
         "measure": "Consumption expenditure per consumption unit, EUR per month, current prices",
         "year": int(YEAR),
         "url": SOURCE_PAGE,
         "license": "CC BY 4.0",
         "retrieved": date.today().isoformat(),
-        "coicop_eur_per_month_by_age": by_age,
+        "coicop_eur_per_month_by_age": _query(
+            TABLE_URL, "ikaryhma_10_20180101", ["SSS", *AGE_GROUPS]
+        ),
+        "coicop_eur_per_month_by_household_type": _query(
+            HOUSEHOLD_TABLE_URL, "elinvaihe_13_20160101", ["SSS", *HOUSEHOLD_TYPES]
+        ),
     }
 
 
@@ -145,17 +172,11 @@ def _data() -> dict:
 def source() -> dict:
     """Attribution to show next to any figure from this data."""
     d = _data()
-    return {k: d[k] for k in ("source", "table", "measure", "year", "url", "license")}
+    return {k: d[k] for k in ("source", "table", "household_table", "measure", "year", "url",
+                              "license")}
 
 
-def national_spending(age: int) -> dict:
-    """Average monthly spending per bank category for the customer's age group.
-
-    Returns {"age_group", "total_eur", "categories": {name: {"eur", "label", "caveat"}}}.
-    A category is left out if Statistics Finland has no figure for a part of it.
-    """
-    group = age_group(age)
-    figures = _data()["coicop_eur_per_month_by_age"][group]
+def _categories(figures: dict[str, float]) -> dict:
     categories = {}
     for name, mapping in CATEGORY_MAP.items():
         if all(c in figures for c in mapping["coicop"]):
@@ -165,10 +186,40 @@ def national_spending(age: int) -> dict:
                 "caveat": mapping.get("caveat"),
                 "comparable": mapping.get("comparable", True),
             }
+    return categories
+
+
+def national_spending(age: int, household: tuple[bool, int] | None = None) -> dict:
+    """Average monthly spending per person and bank category, for people like the customer.
+
+    Without household details the benchmark is the customer's age group. With
+    them (`household` = (has partner, children at home)) it is their type of
+    household instead, which says more than age alone.
+
+    Returns {"group", "age_group", "by", "total_eur", "categories": {name:
+    {"eur", "label", "caveat", "comparable"}}}. A category is left out if
+    Statistics Finland has no figure for a part of it.
+    """
+    group = age_group(age)
+    pretty_age = "85+" if group.endswith("-") else group.replace("-", "–")
+    if household is not None:
+        code = household_type(age, *household)
+        figures = _data()["coicop_eur_per_month_by_household_type"].get(code)
+        if figures:
+            return {
+                "group": HOUSEHOLD_TYPES[code],
+                "age_group": pretty_age,
+                "by": "household",
+                "total_eur": figures.get("0"),
+                "categories": _categories(figures),
+            }
+    figures = _data()["coicop_eur_per_month_by_age"][group]
     return {
-        "age_group": group.replace("-", "–") if not group.endswith("-") else "85+",
+        "group": f"age {pretty_age}",
+        "age_group": pretty_age,
+        "by": "age",
         "total_eur": figures.get("0"),
-        "categories": categories,
+        "categories": _categories(figures),
     }
 
 
@@ -177,7 +228,8 @@ if __name__ == "__main__":
     DATA_FILE.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     _data.cache_clear()
     print(f"Saved {DATA_FILE.name}: {data['table']} ({data['year']})")
-    for age in (22, 30, 50, 70):
-        n = national_spending(age)
-        print(age, n["age_group"], "total", n["total_eur"],
+    for age, household in ((30, None), (30, (False, 0)), (40, (True, 2)), (40, (False, 1)),
+                           (50, (True, 0)), (70, (True, 0))):
+        n = national_spending(age, household)
+        print(age, household, "->", n["group"], "| total", n["total_eur"],
               {k: v["eur"] for k, v in n["categories"].items()})

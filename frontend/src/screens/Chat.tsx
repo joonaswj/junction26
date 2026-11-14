@@ -28,11 +28,13 @@ type Props = {
     pending: PendingQuestion | null;
     /** Open a chart from an answer in Explore. */
     onExplore: (query: ExploreQuery) => void;
+    /** Changes when the customer edits their household details. */
+    contextVersion: number;
 };
 
 type Streaming = { text: string; status: string };
 
-export default function Chat({ customerId, pending, onExplore }: Props) {
+export default function Chat({ customerId, pending, onExplore, contextVersion }: Props) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [streaming, setStreaming] = useState<Streaming | null>(null);
@@ -53,7 +55,7 @@ export default function Chat({ customerId, pending, onExplore }: Props) {
             .catch(() => {
                 // Keep the fallback suggestions.
             });
-    }, [customerId]);
+    }, [customerId, contextVersion]);
 
     // After sending, put the question at the top so the answer is read from
     // its start, instead of jumping to the end of a long answer with a chart.

@@ -36,6 +36,8 @@ export type Insight = {
     percentile: number;
     direction: "more" | "less";
     text: string;
+    /** Why this difference may simply reflect their household, if they told us. */
+    expected_because: string | null;
 };
 
 export type Insights = {
@@ -189,6 +191,9 @@ export type ExploreResult = {
     notes: string[];
     source: DataSource | null;
     questions: string[];
+    household: Household | null;
+    /** True when a comparison would be fairer with household details. */
+    household_hint: boolean;
     options: {
         measures: { id: Measure; label: string }[];
         group_by: GroupBy[];
@@ -197,6 +202,37 @@ export type ExploreResult = {
         compare: CompareWith[];
     };
 };
+
+// Optional, self-reported household details (household.py).
+export type Household = {
+    partner: boolean;
+    children: number;
+    partner_share_pct: number;
+    description: string;
+    consumption_units: number;
+};
+export type HouseholdInfo = {
+    household: Household | null;
+    shared_categories: string[];
+    max_partner_share_pct: number;
+};
+export type HouseholdInput = Pick<Household, "partner" | "children" | "partner_share_pct">;
+
+async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
+    const response = await fetch(`${API_URL}${path}`, {
+        method,
+        headers: body ? { "Content-Type": "application/json" } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) throw new Error(`API request failed: ${response.status} ${path}`);
+    return response.json() as Promise<T>;
+}
+
+export const getHousehold = (id: string) => get<HouseholdInfo>(`/customers/${id}/household`);
+export const saveHousehold = (id: string, input: HouseholdInput) =>
+    send<HouseholdInfo>("PUT", `/customers/${id}/household`, input);
+export const deleteHousehold = (id: string) =>
+    send<HouseholdInfo>("DELETE", `/customers/${id}/household`);
 
 export type Transaction = {
     tx_date: string;

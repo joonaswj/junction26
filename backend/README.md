@@ -615,3 +615,20 @@ Suggestions are tailored to the customer's profile: savings rate, biggest differ
 ### From charts to chat and back (frontend)
 
 Every chart is a starting point (`frontend/src/charts/Visual.tsx`): tapping a bar, a month or a comparison row offers "Ask about this" (sends a question about that exact element to the assistant) and a drill-down in Explore ("See month by month", "Look inside Jul", "See the merchants"). Charts in chat answers have an "Explore" button that opens the same view in the Explore tab.
+
+### Household details (`junction26/household.py`)
+
+A bank account shows one person's payments, not a household's life: someone whose partner buys the groceries looks like they barely eat. So the customer can optionally say whether they live with a partner, how many children are at home, and (with a slider) roughly how much of the shared costs the partner pays. It is self-reported, never required, editable and deletable, and stored in `backend/data/household.json` (not in git).
+
+| Endpoint | Does |
+|---|---|
+| `GET /customers/{customer_id}/household` | The details, or `null` |
+| `PUT /customers/{customer_id}/household` | Save `{"partner": true, "children": 2, "partner_share_pct": 70}` |
+| `DELETE /customers/{customer_id}/household` | Remove them |
+
+What it changes:
+
+- **The Finnish benchmark** becomes "households like yours" (Statistics Finland table 14ph: people living alone, couples without children, single-parent households, two-parent families with children, over-64 households) instead of "people your age".
+- **Shared costs** (groceries, housing, utilities, home & tech) are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Personal costs are left as they are.
+- **Insights** that the household explains get an `expected_because` note ("Your partner pays about 70 % of your shared costs, so this account shows only part of your household's groceries") and are shown after the others.
+- **The assistant and the suggested questions** know the details. Without them, a comparison that would benefit shows an invitation to add them.

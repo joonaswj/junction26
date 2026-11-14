@@ -20,7 +20,7 @@ from functools import lru_cache
 
 import pandas as pd
 
-from . import finance, opendata
+from . import finance, household, opendata
 from .data import load_transactions
 from .insights import SPENDING_CATEGORIES, _peers, peer_data
 
@@ -157,17 +157,51 @@ def explore(
 
     # ---- Benchmarks, shared by "month" and "category" views
     peer_label = f"Typical similar customer ({profile['peer_count']} people)"
-    national = opendata.national_spending(profile["age"])
-    fin_label = f"Finnish average, age {national['age_group']}"
+    # With household details the benchmark is "households like yours" and the
+    # customer's shared costs are put on the same per-person footing.
+    home = household.get(customer_id)
+    national = opendata.national_spending(
+        profile["age"], (home.partner, home.children) if home else None
+    )
+    fin_label = f"Finnish average, {national['group']}"
+    you_label = "You"
+
+    def factor(category: str) -> float:
+        return household.per_person_factor(category, home)
+
+    def per_person_by_month(used: list[str]) -> list[float]:
+        """The customer's spending per month in `used`, per person in the household."""
+        sub = tx[tx["category"].isin(used)]
+        table = (
+            (-sub["tx_amount_eur"])
+            .groupby([sub["tx_date"].dt.to_period("M").astype(str), sub["category"]],
+                     observed=True)
+            .sum()
+            .unstack(fill_value=0.0)
+            .reindex(index=labels, fill_value=0.0)
+        )
+        return [round(float(sum(row.get(c, 0.0) * factor(c) for c in used)), 2)
+                for _, row in table.iterrows()]
 
     def add_finland_notes(used: list[str], skipped: list[str]) -> None:
         nonlocal source
         source = opendata.source()
+        whom = (national["group"] if national["by"] == "household"
+                else f"households where the main earner is {national['age_group']}")
         notes.append(
             f"Finnish average: {source['source']} {source['year']}, spending per person "
-            f"(consumption unit) for households where the main earner is {national['age_group']}. "
-            "Categories are matched approximately."
+            f"(consumption unit) for {whom}. Categories are matched approximately."
         )
+        if home and any(factor(c) != 1 for c in used):
+            shared = [c.lower() for c in used if factor(c) != 1]
+            how = (f"scaled up to your whole household (you said your partner pays about "
+                   f"{home.partner_share_pct} %) and " if home.partner else "")
+            notes.append(
+                f"Your shared costs ({', '.join(shared)}) are {how}divided by your household's "
+                f"size ({home.consumption_units:.1f} consumption units: first adult 1, second "
+                "adult 0.5, each child 0.3), so both sides are per person. Personal costs are "
+                "shown as they are."
+            )
         for c in used:
             if national["categories"][c]["caveat"]:
                 notes.append(f"{c}: {national['categories'][c]['caveat']}")
@@ -250,23 +284,20 @@ def explore(
                 table["columns"].append("Finnish average")
                 for row in table["rows"]:
                     row.append(level)
-                mine_used = tx[tx["category"].isin(used)]
-                my_avg = float(-mine_used["tx_amount_eur"].sum()) / months
+                # Compare like with like: only comparable categories, per person.
+                series[0]["values"] = per_person_by_month(used)
+                if home and any(factor(c) != 1 for c in used):
+                    series[0]["name"] = "You, per person"
+                    table["columns"][1] = "You, per person"
+                for row, v in zip(table["rows"], series[0]["values"]):
+                    row[1] = v
+                my_avg = sum(series[0]["values"]) / len(labels)
                 diff = my_avg - level
                 summary = (
                     f"You spend {_eur(abs(diff))} {'more' if diff > 0 else 'less'} a month than "
-                    f"the Finnish average for your age ({_eur(my_avg)} vs {_eur(level)})."
+                    f"the Finnish average for {national['group']} ({_eur(my_avg)} vs "
+                    f"{_eur(level)})."
                 )
-                if skipped:
-                    # Keep the chart honest: compare like with like.
-                    series[0]["values"] = [
-                        round(float(v), 2) for v in
-                        (-mine_used["tx_amount_eur"])
-                        .groupby(mine_used["tx_date"].dt.to_period("M").astype(str)).sum()
-                        .reindex(labels, fill_value=0.0)
-                    ]
-                    for row, v in zip(table["rows"], series[0]["values"]):
-                        row[1] = v
                 questions.insert(0, _finland_question(used, all_cats))
             add_finland_notes(used, skipped)
         visual = {
@@ -319,6 +350,9 @@ def explore(
                 skipped = [c for c in cats if c in national["categories"]
                            and not national["categories"][c]["comparable"]]
                 bench = {c: national["categories"][c]["eur"] for c in used}
+                monthly = {c: round(v * factor(c), 2) for c, v in monthly.items()}
+                if home and any(factor(c) != 1 for c in used):
+                    you_label = "You, per person in your household"
                 bench_label, cls, short = fin_label, "s2", "Finnish average"
                 them = "the Finnish average"
                 add_finland_notes(used, skipped)
@@ -326,7 +360,7 @@ def explore(
             items = [{"label": c, "you": monthly[c], "peers": bench[c]} for c in used]
             items.sort(key=lambda i: -abs(i["you"] - i["peers"]))
             visual = {"type": "compare", "title": f"{scope.capitalize()}: you and others",
-                      "subtitle": f"Average per month, {period}", "you_label": "You",
+                      "subtitle": f"Average per month, {period}", "you_label": you_label,
                       "peer_label": bench_label, "peer_class": cls, "items": items}
             table = {"columns": ["Category", "You / month", f"{short} / month", "Difference"],
                      "rows": [[i["label"], i["you"], i["peers"], round(i["you"] - i["peers"], 2)]
@@ -397,6 +431,9 @@ def explore(
         "notes": notes,
         "source": source,
         "questions": questions,
+        "household": household.as_dict(home),
+        # Comparisons are fairer with household details: invite, never require.
+        "household_hint": home is None and q["compare"] != "none",
         "options": {
             "measures": [{"id": m, "label": LABELS[m].split(" (")[0]} for m in MEASURES],
             "group_by": GROUPS,

@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from . import finance, opendata
+from . import finance, household, opendata
 
 _FINNISH = re.compile(
     r"[äöÄÖ]|\b(mitä|miten|paljonko|kuinka|minun|rahaa|olen|onko|voinko|kerro|asuntolaina"
@@ -90,6 +90,8 @@ def candidates(customer_id: str) -> list[Suggestion]:
                    "Mitkä olivat suurimmat ostokseni viime kuussa?"))
 
     # --- Compared with similar customers
+    # Differences their household already explains aren't worth a "why" question.
+    insights = [i for i in insights if not i.get("expected_because")]
     more = [i for i in insights if i["direction"] == "more"]
     less = [i for i in insights if i["direction"] == "less"]
     if more:
@@ -178,8 +180,11 @@ def candidates(customer_id: str) -> list[Suggestion]:
                        "Teet tältä tililtä vain vähän korttiostoksia"))
 
     # --- Compared with Finland (Statistics Finland)
-    national = opendata.national_spending(overview["age"])
-    mine = {c: v / 3 for c, v in
+    home = household.get(customer_id)
+    national = opendata.national_spending(
+        overview["age"], (home.partner, home.children) if home else None
+    )
+    mine = {c: v / 3 * household.per_person_factor(c, home) for c, v in
             finance.get_spending(customer_id, 3)["by_category_eur"].items()}
     ratios = [(mine[c] / n["eur"], c, n["eur"]) for c, n in national["categories"].items()
               if n["comparable"] and n["eur"] > 0 and c in mine]
@@ -192,10 +197,17 @@ def candidates(customer_id: str) -> list[Suggestion]:
             f"People your age in Finland spend about {_eur(eur)} a month on this",
             f"Ikäisesi suomalaiset käyttävät tähän noin {_eur(eur)} kuussa",
         ))
-    add(Suggestion("finland", "finland", 46,
-                   "How do I compare with the Finnish average for my age?",
-                   "Miten vertaudun ikäisteni suomalaisten keskiarvoon?",
-                   "Open data from Statistics Finland", "Tilastokeskuksen avointa dataa"))
+    if home:
+        add(Suggestion("finland", "finland", 72,
+                       "How does my household compare with similar households in Finland?",
+                       "Miten kotitalouteni vertautuu vastaaviin suomalaisiin kotitalouksiin?",
+                       f"Compared with {national['group']}, using what you told us",
+                       "Vertailu kaltaisiisi kotitalouksiin kertomasi perusteella"))
+    else:
+        add(Suggestion("finland", "finland", 46,
+                       "How do I compare with the Finnish average for my age?",
+                       "Miten vertaudun ikäisteni suomalaisten keskiarvoon?",
+                       "Open data from Statistics Finland", "Tilastokeskuksen avointa dataa"))
 
     # --- Home and mortgage
     if mortgage["has_mortgage_application"]:

@@ -13,6 +13,7 @@ import {
     type Transaction,
 } from "../api";
 import Visual from "../charts/Visual";
+import HouseholdCard from "../components/HouseholdCard";
 import { formatEurCents, formatMonthYear } from "../format";
 
 type Props = {
@@ -21,6 +22,9 @@ type Props = {
     query: ExploreQuery;
     onQuery: (query: ExploreQuery) => void;
     onAsk: (question: string) => void;
+    /** Changes when the customer edits their household details. */
+    contextVersion: number;
+    onContextChange: () => void;
 };
 
 const GROUP_LABELS: Record<GroupBy, string> = {
@@ -41,13 +45,15 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fi-FI");
  * Explore your own data freely: choose what to look at, how to slice it and
  * who to compare with. Nothing here is a chart the bank picked for you.
  */
-export default function Explore({ customerId, query, onQuery, onAsk }: Props) {
+export default function Explore(props: Props) {
+    const { customerId, query, onQuery, onAsk, contextVersion, onContextChange } = props;
     const [result, setResult] = useState<ExploreResult | null>(null);
     const [loadedKey, setLoadedKey] = useState("");
     const [failed, setFailed] = useState(false);
     const [view, setView] = useState<"chart" | "table">("chart");
     const key = JSON.stringify(query);
-    const loading = loadedKey !== key; // the chart on screen is for an older view
+    const loadKey = `${key}#${contextVersion}`;
+    const loading = loadedKey !== loadKey; // the chart on screen is for an older view
 
     useEffect(() => {
         let cancelled = false;
@@ -56,7 +62,7 @@ export default function Explore({ customerId, query, onQuery, onAsk }: Props) {
                 if (cancelled) return;
                 setResult(r);
                 setFailed(false);
-                setLoadedKey(key);
+                setLoadedKey(loadKey);
             })
             .catch(() => {
                 if (!cancelled) setFailed(true);
@@ -64,7 +70,7 @@ export default function Explore({ customerId, query, onQuery, onAsk }: Props) {
         return () => {
             cancelled = true;
         };
-    }, [customerId, key]);
+    }, [customerId, key, loadKey]);
 
     if (failed && !result) {
         return (
@@ -226,6 +232,12 @@ export default function Explore({ customerId, query, onQuery, onAsk }: Props) {
                     </div>
                 )}
             </section>
+
+            <HouseholdCard
+                customerId={customerId}
+                onChange={onContextChange}
+                highlight={result.household_hint}
+            />
 
             {spending && <Transactions customerId={customerId} query={q} queryKey={key} />}
 

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from . import chat as chatbot
 from . import explore as explorer
-from . import finance, guardrails, opendata, visuals
+from . import finance, guardrails, household, opendata, visuals
 from .data import load_transactions
 from .insights import SPENDING_CATEGORIES
 
@@ -154,6 +154,46 @@ def my_data(customer_id: str):
         "customers_in_dataset": int(load_transactions()["customer_id"].nunique()),
         "open_data": opendata.source(),
     }
+
+
+class HouseholdIn(BaseModel):
+    partner: bool = False
+    children: int = Field(0, ge=0, le=household.MAX_CHILDREN)
+    partner_share_pct: int = Field(
+        0, ge=0, le=household.MAX_PARTNER_SHARE,
+        description="How much of the shared costs the partner pays, estimated",
+    )
+
+
+def _household_response(customer_id: str) -> dict:
+    return {
+        "household": household.as_dict(household.get(customer_id)),
+        "shared_categories": household.SHARED_CATEGORIES,
+        "max_partner_share_pct": household.MAX_PARTNER_SHARE,
+    }
+
+
+@router.get("/customers/{customer_id}/household", tags=["household"])
+def get_household(customer_id: str):
+    """Optional household details the customer has given (null if none)."""
+    _call(finance.get_profile, customer_id)
+    return _household_response(customer_id)
+
+
+@router.put("/customers/{customer_id}/household", tags=["household"])
+def put_household(customer_id: str, body: HouseholdIn):
+    """Save household details. Optional, used for fairer comparisons."""
+    _call(finance.get_profile, customer_id)
+    household.save(customer_id, body.partner, body.children, body.partner_share_pct)
+    return _household_response(customer_id)
+
+
+@router.delete("/customers/{customer_id}/household", tags=["household"])
+def delete_household(customer_id: str):
+    """Remove the household details again."""
+    _call(finance.get_profile, customer_id)
+    household.delete(customer_id)
+    return _household_response(customer_id)
 
 
 @router.get("/customers/{customer_id}/chat/starters", tags=["chat"])

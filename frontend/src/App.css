@@ -963,3 +963,98 @@ input:focus-visible {
     font-weight: 500;
     color: var(--muted);
 }
+
+/* Household details */
+.household {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.household.invite {
+    border-left: 4px solid var(--brand);
+}
+
+.household.highlight {
+    background: var(--brand-soft);
+    box-shadow: none;
+}
+
+.household.set {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.household fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.household legend {
+    padding: 0;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.household .button-row {
+    margin-top: 0;
+}
+
+.household .btn-primary {
+    flex: 1;
+    padding: 12px;
+}
+
+.slider-value {
+    font-size: 1.05rem;
+}
+
+.household input[type="range"] {
+    width: 100%;
+    height: 44px; /* tall enough to grab with a thumb */
+    margin: 0;
+    accent-color: var(--brand);
+}
+
+.slider-ends {
+    display: flex;
+    justify-content: space-between;
+    margin-top: -6px;
+    font-size: 0.75rem;
+    color: var(--muted);
+}
+
+.link-button.danger {
+    align-self: flex-start;
+    color: var(--more);
+}
+
+.insight-context {
+    display: flex;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #eaf2fb;
+    font-size: 0.85rem;
+}
+
+.insight-context span {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    margin-top: 1px;
+    border-radius: 50%;
+    background: #2a78d6;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 800;
+    font-family: Georgia, serif;
+}

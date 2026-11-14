@@ -219,9 +219,19 @@ def get_insights(customer_id: str, limit: int = 5) -> dict:
         # Low spending here likely means they use another card.
         notable = notable[notable["diff_eur"] > 0]
     notable = notable.reindex(notable["diff_eur"].abs().sort_values(ascending=False).index)
-    items = [
-        {**row.to_dict(), "direction": "more" if row["diff_eur"] > 0 else "less",
-         "text": _text(row)}
-        for _, row in notable.head(limit).iterrows()
-    ]
-    return {**profile, "insights": items}
+    from . import household
+
+    home = household.get(customer_id)
+    items = []
+    for _, row in notable.iterrows():
+        direction = "more" if row["diff_eur"] > 0 else "less"
+        items.append({
+            **row.to_dict(),
+            "direction": direction,
+            "text": _text(row),
+            # Why this difference may simply reflect their household.
+            "expected_because": household.expectation(row["category"], direction, home),
+        })
+    # Differences the household explains are less newsworthy: show them last.
+    items.sort(key=lambda i: i["expected_because"] is not None)
+    return {**profile, "insights": items[:limit]}

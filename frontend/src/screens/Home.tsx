@@ -10,6 +10,7 @@ import {
     type Overview,
 } from "../api";
 import Visual from "../charts/Visual";
+import HouseholdCard from "../components/HouseholdCard";
 import { describePeers, formatEur, formatEurCents } from "../format";
 
 type Props = {
@@ -18,13 +19,16 @@ type Props = {
     onAsk: (question: string) => void;
     /** Open a view in Explore. */
     onExplore: (query: ExploreQuery) => void;
+    /** Changes when the customer edits their household details. */
+    contextVersion: number;
+    onContextChange: () => void;
 };
 
 type Data = { overview: Overview; insights: Insights; visuals: DashboardVisuals };
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fi-FI");
 
-export default function Home({ customerId, onAsk, onExplore }: Props) {
+export default function Home({ customerId, onAsk, onExplore, contextVersion, onContextChange }: Props) {
     const [data, setData] = useState<Data | null>(null);
     const [error, setError] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -45,7 +49,7 @@ export default function Home({ customerId, onAsk, onExplore }: Props) {
         return () => {
             cancelled = true;
         };
-    }, [customerId, attempt]);
+    }, [customerId, attempt, contextVersion]);
 
     if (error) {
         return (
@@ -111,6 +115,8 @@ export default function Home({ customerId, onAsk, onExplore }: Props) {
                     </p>
                 )}
             </section>
+
+            <HouseholdCard customerId={customerId} onChange={onContextChange} />
 
             <section>
                 <SectionHead
@@ -232,6 +238,12 @@ function InsightCard({ insight, onAsk }: { insight: Insight; onAsk: (q: string) 
                     className="peer"
                 />
             </div>
+            {insight.expected_because && (
+                <p className="insight-context">
+                    <span aria-hidden="true">i</span>
+                    {insight.expected_because}
+                </p>
+            )}
             <div className="insight-foot">
                 <span className="muted small">
                     You spend {more ? "more" : "less"} than{" "}

@@ -33,6 +33,10 @@ function App() {
     const [tab, setTab] = useState<Tab>("home");
     const [pending, setPending] = useState<PendingQuestion | null>(null);
     const [view, setView] = useState<ExploreQuery>(DEFAULT_VIEW);
+    // Bumped when the customer changes their household details, so every
+    // screen reloads its comparisons.
+    const [contextVersion, setContextVersion] = useState(0);
+    const contextChanged = () => setContextVersion((v) => v + 1);
 
     // Any chart or button can hand a question to the assistant...
     function askAssistant(text: string) {
@@ -78,14 +82,33 @@ function App() {
 
             <main className="content">
                 {tab === "home" && (
-                    <Home customerId={customerId} onAsk={askAssistant} onExplore={openExplore} />
+                    <Home
+                        customerId={customerId}
+                        onAsk={askAssistant}
+                        onExplore={openExplore}
+                        contextVersion={contextVersion}
+                        onContextChange={contextChanged}
+                    />
                 )}
                 {tab === "explore" && (
-                    <Explore customerId={customerId} query={view} onQuery={setView} onAsk={askAssistant} />
+                    <Explore
+                        customerId={customerId}
+                        query={view}
+                        onQuery={setView}
+                        onAsk={askAssistant}
+                        contextVersion={contextVersion}
+                        onContextChange={contextChanged}
+                    />
                 )}
                 {/* Kept mounted so the conversation survives switching tabs. */}
                 <div className="tab-panel" hidden={tab !== "chat"}>
-                    <Chat key={customerId} customerId={customerId} pending={pending} onExplore={openExplore} />
+                    <Chat
+                        key={customerId}
+                        customerId={customerId}
+                        pending={pending}
+                        onExplore={openExplore}
+                        contextVersion={contextVersion}
+                    />
                 </div>
             </main>
 

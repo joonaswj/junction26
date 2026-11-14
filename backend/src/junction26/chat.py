@@ -24,7 +24,7 @@ from typing import Any
 
 import openai
 
-from . import finance, guardrails, opendata, visuals
+from . import finance, guardrails, household, opendata, visuals
 from .featherless import get_llm
 
 MAX_TOOL_ROUNDS = 6
@@ -56,7 +56,8 @@ month before that date.
 - "Similar customers" means customers in the same age and income group \
 ({peer_group}). Say who you compare with when you compare.
 - The Finnish average comes from Statistics Finland's Household Budget \
-Survey 2022 (spending per person, by age group). When you use it, name the \
+Survey 2022 (spending per person, by age group, or by household type when \
+the customer has given household details). When you use it, name the \
 source and say it is an approximate match. Housing is not compared with it.
 - Merchants only have codes like MRC-RES-0042 (RES = restaurants), no names.
 {low_activity_note}
@@ -313,11 +314,28 @@ def _snapshot(customer_id: str) -> dict:
     overview = finance.get_overview(customer_id)
     insights = finance.get_insights(customer_id, limit=5)
     mortgage = finance.get_mortgage_details(customer_id)
-    national = opendata.national_spending(overview["age"])
+    home = household.get(customer_id)
+    national = opendata.national_spending(
+        overview["age"], (home.partner, home.children) if home else None
+    )
     from .explore import explore
 
     finland = explore(customer_id, group_by="category", months=12, compare="finland")
     snap: dict[str, Any] = {
+        "household_told_by_customer": (
+            {
+                **household.as_dict(home),
+                "shared_categories": household.SHARED_CATEGORIES,
+                "how_to_use": "Self-reported. Use it to interpret their spending: this "
+                "account may show only part (or more than one person's share) of the "
+                "household's shared costs. Insights marked expected_because are explained "
+                "by it: say so instead of treating them as a problem.",
+            }
+            if home
+            else "Not given. If a comparison looks odd (very low or high shared costs), "
+            "you may mention once that they can add household details in the app for a "
+            "fairer comparison."
+        ),
         "overview": {k: v for k, v in overview.items() if k not in ("customer_id", "age")},
         # Monthly averages everywhere, so figures can be compared with each other.
         "avg_monthly_spending_last_3_months_eur": {
@@ -326,7 +344,7 @@ def _snapshot(customer_id: str) -> dict:
         },
         "vs_similar_customers_monthly": [
             {k: i[k] for k in ("category", "you_eur", "peer_median_eur", "diff_eur",
-                               "percentile")}
+                               "percentile", "expected_because")}
             for i in insights["insights"]
         ],
         "peer_group_size": insights["peer_count"],
@@ -334,8 +352,9 @@ def _snapshot(customer_id: str) -> dict:
         # doesn't have to work out which number is bigger.
         "vs_finnish_average": {
             "source": "Statistics Finland, Household Budget Survey 2022, per person, "
-            f"age group {national['age_group']}. Approximate category match.",
-            "period": "your monthly average over the last 12 months",
+            f"{national['group']}. Approximate category match.",
+            "period": "your monthly average over the last 12 months"
+            + (", shared costs converted to per person in the household" if home else ""),
             "summary": finland["summary"],
             "by_category": [
                 {
