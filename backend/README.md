@@ -498,3 +498,14 @@ Start the backend (`uv run fastapi dev src/main.py` in `backend`) and see http:/
 | `GET /customers/{customer_id}/transactions?start=&end=&category=&limit=&offset=` | Their transactions |
 | `GET /mortgages?decision=approved\|rejected` | Mortgage application outcomes |
 | `GET /mortgages/{mortgage_customer_id}/events` | Event history for one application |
+
+## Spending insights vs similar users
+
+`junction26/insights.py` compares each customer's spending (last 12 months, EUR per month) to similar users: same age band and income band, or same income band only if that group has fewer than 20 people. Customers with fewer than 12 card purchases a month are flagged `low_activity` (they probably use another card too). They are left out of peer stats and don't get "you spend less" insights.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /customers/{customer_id}/insights?limit=5` | Biggest differences vs peers, with ready-made text like "You spend €222 more per month on groceries than similar users…" |
+| `GET /customers/{customer_id}/peer-comparison` | Every category: you vs peer median, difference, percentile |
+
+In Python: `from junction26.insights import get_insights, get_comparison`. The first call takes a few seconds, then it's cached.

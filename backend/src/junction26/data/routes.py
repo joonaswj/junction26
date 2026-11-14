@@ -83,6 +83,28 @@ def get_customer_transactions(
     return {"total": len(df), "items": _records(df.iloc[offset : offset + limit])}
 
 
+@router.get("/customers/{customer_id}/insights", tags=["insights"])
+def get_customer_insights(customer_id: str, limit: int = Query(5, ge=1, le=10)):
+    """Biggest spending differences vs similar users, with ready-made text."""
+    from ..insights import get_insights
+
+    try:
+        return get_insights(customer_id, limit)
+    except KeyError:
+        raise HTTPException(404, f"Customer {customer_id} not found") from None
+
+
+@router.get("/customers/{customer_id}/peer-comparison", tags=["insights"])
+def get_customer_peer_comparison(customer_id: str):
+    """Every spending category (EUR/month, last 12 months) vs similar users."""
+    from ..insights import get_comparison, get_profile
+
+    try:
+        return {**get_profile(customer_id), "categories": _records(get_comparison(customer_id))}
+    except KeyError:
+        raise HTTPException(404, f"Customer {customer_id} not found") from None
+
+
 @router.get("/mortgages")
 def list_mortgages(decision: str | None = None):
     df = load_mortgage_outcomes()
