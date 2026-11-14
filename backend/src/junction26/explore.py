@@ -23,6 +23,7 @@ import pandas as pd
 from . import finance, household, opendata
 from .data import load_transactions
 from .insights import SPENDING_CATEGORIES, _peers, peer_data
+from .suggestions import adjective, question_for
 
 MEASURES = ["spending", "income", "saved", "balance"]
 GROUPS = ["month", "category", "merchant", "weekday"]
@@ -120,9 +121,15 @@ def _scope(cats: list[str]) -> str:
     """'spending' / 'groceries spending' / 'groceries and travel spending'."""
     if len(cats) == len(SPENDING_CATEGORIES):
         return "spending"
-    names = [c.lower() for c in cats]
+    names = [adjective(c) for c in cats]
     joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
     return f"{joined} spending"
+
+
+def _peer_question(scope: str, all_selected: bool) -> str:
+    if all_selected:
+        return "Where do I spend more than similar customers?"
+    return f"How does my {scope} compare with similar customers?"
 
 
 def _finland_question(cats: list[str], all_selected: bool) -> str:
@@ -234,7 +241,7 @@ def explore(
             change = values[-1] - values[0]
             summary = (f"Your balance went {'up' if change >= 0 else 'down'} by "
                        f"{_eur(abs(change))} over {the_period}.")
-            questions = ["Is my balance growing?", "Why did my balance change?"]
+            questions = ["Is my balance growing?", "How much do I save each month?"]
         else:
             avg = sum(values) / len(values)
             visual = {"type": "columns", "title": title, "subtitle": f"{period[0].upper() + period[1:]}, average",
@@ -271,7 +278,7 @@ def explore(
                 row.append(v)
             above = sum(a > b for a, b in zip(values, pv))
             summary += f" You were above the typical similar customer in {above} of {months} months."
-            questions.insert(0, f"Why does my {scope} differ from similar customers?")
+            questions.insert(0, _peer_question(scope, all_cats))
             add_peer_note()
         elif q["compare"] == "finland":
             used = [c for c in cats if national["categories"].get(c, {}).get("comparable")]
@@ -343,8 +350,7 @@ def explore(
                 them = "the typical similar customer"
                 add_peer_note()
                 used = cats
-                questions = [f"Why does my {scope} differ from similar customers?",
-                             "Where could I save the most?"]
+                questions = [_peer_question(scope, all_cats), "Where could I save the most?"]
             else:
                 used = [c for c in cats if national["categories"].get(c, {}).get("comparable")]
                 skipped = [c for c in cats if c in national["categories"]
@@ -357,7 +363,13 @@ def explore(
                 them = "the Finnish average"
                 add_finland_notes(used, skipped)
                 questions = [_finland_question(used or cats, all_cats)]
-            items = [{"label": c, "you": monthly[c], "peers": bench[c]} for c in used]
+            versus = "finland" if q["compare"] == "finland" else "peers"
+            items = [
+                {"label": c, "you": monthly[c], "peers": bench[c],
+                 # What to ask about this row (never "why do I spend less").
+                 "question": question_for(c, "more" if monthly[c] > bench[c] else "less", versus)}
+                for c in used
+            ]
             items.sort(key=lambda i: -abs(i["you"] - i["peers"]))
             visual = {"type": "compare", "title": f"{scope.capitalize()}: you and others",
                       "subtitle": f"Average per month, {period}", "you_label": you_label,
@@ -400,7 +412,7 @@ def explore(
                        f"purchase{'' if int(r['count']) == 1 else 's'}.")
         else:
             summary = f"No card purchases in {the_period} for this selection."
-        questions = [f"Which merchants do I use most for {scope.replace(' spending', '')}?"
+        questions = [f"Which merchants do I use most for {' and '.join(c.lower() for c in cats)}?"
                      if not all_cats else "Which merchants do I spend the most at?"]
 
     else:  # weekday

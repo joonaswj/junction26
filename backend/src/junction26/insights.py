@@ -220,6 +220,7 @@ def get_insights(customer_id: str, limit: int = 5) -> dict:
         notable = notable[notable["diff_eur"] > 0]
     notable = notable.reindex(notable["diff_eur"].abs().sort_values(ascending=False).index)
     from . import household
+    from .suggestions import question_for
 
     home = household.get(customer_id)
     items = []
@@ -229,6 +230,8 @@ def get_insights(customer_id: str, limit: int = 5) -> dict:
             **row.to_dict(),
             "direction": direction,
             "text": _text(row),
+            # What to ask the assistant about it (never "why do I spend less").
+            "question": question_for(row["category"], direction),
             # Why this difference may simply reflect their household.
             "expected_because": household.expectation(row["category"], direction, home),
         })

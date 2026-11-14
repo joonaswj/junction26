@@ -429,7 +429,7 @@ function Compare({ spec, onAsk, onExplore, question, hideExploreButton, hideAskB
     const max = Math.max(...spec.items.flatMap((i) => [i.you, i.peers]), 1);
     const cls = spec.peer_class ?? "peer";
     const finland = spec.explore?.compare === "finland" || cls === "s2";
-    const who = finland ? "the Finnish average" : "others";
+    const who = finland ? "the Finnish average" : "similar customers";
     const interactive = !!(onAsk || onExplore);
     const item = spec.items.find((i) => i.label === selected);
 
@@ -483,11 +483,9 @@ function Compare({ spec, onAsk, onExplore, question, hideExploreButton, hideAskB
                     onClose={() => setSelected(null)}
                     ask={
                         onAsk && {
-                            text: "Ask why",
+                            text: "Ask about this",
                             run: () =>
-                                onAsk(
-                                    `Why do I spend ${item.you > item.peers ? "more" : "less"} on ${lower(item.label)} than ${who}?`,
-                                ),
+                                onAsk(item.question ?? `How does my ${lower(item.label)} spending compare with ${who}?`),
                         }
                     }
                     drill={

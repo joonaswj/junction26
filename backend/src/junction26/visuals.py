@@ -16,6 +16,11 @@ from __future__ import annotations
 
 from . import finance
 from .insights import SPENDING_CATEGORIES, get_comparison, get_profile
+from .suggestions import question_for
+
+
+def _direction(row) -> str:
+    return "more" if row["you_eur"] > row["peer_median_eur"] else "less"
 
 
 def _peer_text(peer_group: str) -> str:
@@ -102,13 +107,15 @@ def peers(customer_id: str, category: str | None = None) -> dict:
             raise ValueError(f"No comparison for {cat}. Try one of {SPENDING_CATEGORIES}")
         r = row.iloc[0]
         spec["title"] = f"{cat}: you and similar customers"
-        spec["items"] = [{"label": cat, "you": r["you_eur"], "peers": r["peer_median_eur"]}]
+        spec["items"] = [{"label": cat, "you": r["you_eur"], "peers": r["peer_median_eur"],
+                          "question": question_for(cat, _direction(r))}]
         spec["percentile"] = int(r["percentile"])
         return spec
     # Biggest differences first, so the chart tells the story top-down.
     comp = comp.reindex(comp["diff_eur"].abs().sort_values(ascending=False).index).head(6)
     spec["items"] = [
-        {"label": r["category"], "you": r["you_eur"], "peers": r["peer_median_eur"]}
+        {"label": r["category"], "you": r["you_eur"], "peers": r["peer_median_eur"],
+         "question": question_for(r["category"], _direction(r))}
         for _, r in comp.iterrows()
     ]
     return spec

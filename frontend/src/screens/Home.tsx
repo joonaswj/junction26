@@ -250,15 +250,8 @@ function InsightCard({ insight, onAsk }: { insight: Insight; onAsk: (q: string) 
                     {Math.min(Math.round(more ? insight.percentile : 100 - insight.percentile), 99)}
                     &nbsp;% of similar customers.
                 </span>
-                <button
-                    className="link-button"
-                    onClick={() =>
-                        onAsk(
-                            `Why do I spend ${insight.direction} on ${insight.category.toLowerCase()} than others?`,
-                        )
-                    }
-                >
-                    Ask why
+                <button className="link-button" onClick={() => onAsk(insight.question)}>
+                    Ask about this
                 </button>
             </div>
         </article>

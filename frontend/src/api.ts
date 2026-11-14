@@ -36,6 +36,8 @@ export type Insight = {
     percentile: number;
     direction: "more" | "less";
     text: string;
+    /** A sensible question to ask the assistant about this difference. */
+    question: string;
     /** Why this difference may simply reflect their household, if they told us. */
     expected_because: string | null;
 };
@@ -109,7 +111,7 @@ export type CompareVisual = VisualBase & {
     you_label: string;
     peer_label: string;
     peer_class?: string; // "peer" (grey) or "s2" (Finnish average)
-    items: { label: string; you: number; peers: number }[];
+    items: { label: string; you: number; peers: number; question?: string }[];
     percentile?: number;
 };
 export type MortgageVisual = VisualBase & {

@@ -43,6 +43,45 @@ _MONTHS_FI = ["tammikuussa", "helmikuussa", "maaliskuussa", "huhtikuussa", "touk
               "marraskuussa", "joulukuussa"]
 
 
+# "restaurant spending", not "restaurants spending".
+_ADJECTIVE = {"Restaurants": "restaurant", "Groceries": "grocery", "Utilities": "utility"}
+
+
+def adjective(category: str) -> str:
+    """The category as it reads before a noun: 'grocery spending', 'utility costs'."""
+    return _ADJECTIVE.get(category, category.lower())
+
+
+# Costs you can't change much from month to month. Asking how to "spend less"
+# on these is unhelpful (or, for health, insensitive).
+FIXED_COSTS = {"Housing", "Utilities", "Health"}
+
+
+def question_for(category: str, direction: str, versus: str = "peers", lang: str = "en") -> str:
+    """A sensible question about one category where the customer differs from others.
+
+    More on something they control -> how to cut it. More on a fixed cost ->
+    how it has developed. Less -> just how they compare (no "why": nobody asks
+    why they spend less, and the data couldn't say).
+    """
+    cat = category.lower()
+    if direction == "more" and category not in FIXED_COSTS:
+        if lang == "fi":
+            return f"Miten voisin käyttää vähemmän rahaa {_FI_CATEGORY[category][0]}?"
+        return f"How could I spend less on {cat}?"
+    if direction == "more":
+        if lang == "fi":
+            return f"Miten {_FI_CATEGORY[category][1]} ovat muuttuneet vuoden aikana?"
+        return f"How have my {adjective(category)} costs changed over the year?"
+    if versus == "finland":
+        if lang == "fi":
+            return f"Miten {_FI_CATEGORY[category][1]} vertautuvat suomalaisten keskiarvoon?"
+        return f"How does my {adjective(category)} spending compare with the Finnish average?"
+    if lang == "fi":
+        return f"Miten {_FI_CATEGORY[category][1]} vertautuvat samankaltaisiin asiakkaisiin?"
+    return f"How does my {adjective(category)} spending compare with similar customers?"
+
+
 def lang_of(text: str) -> str:
     return "fi" if _FINNISH.search(text or "") else "en"
 
@@ -90,42 +129,48 @@ def candidates(customer_id: str) -> list[Suggestion]:
                    "Mitkä olivat suurimmat ostokseni viime kuussa?"))
 
     # --- Compared with similar customers
-    # Differences their household already explains aren't worth a "why" question.
+    # Nobody asks why they spend LESS than others, and the data can't say why
+    # anyway. So: ask how to cut what you overspend on and can control, ask
+    # how a fixed cost has developed, and only mention "less" as good news.
+    # Differences their household already explains are left out.
     insights = [i for i in insights if not i.get("expected_because")]
     more = [i for i in insights if i["direction"] == "more"]
     less = [i for i in insights if i["direction"] == "less"]
-    if more:
-        top = more[0]
+    flexible = [i for i in more if i["category"] not in FIXED_COSTS]
+    fixed = [i for i in more if i["category"] in FIXED_COSTS]
+    for group, base in ((flexible, 80), (fixed, 62)):
+        if not group:
+            continue
+        top = group[0]
         cat = top["category"]
+        # A small difference isn't worth leading with.
+        big = top["diff_eur"] >= 50 and (top["diff_pct"] or 0) >= 20
         add(Suggestion(
-            "peer_more", "peers", 80,
-            f"Why do I spend more on {cat.lower()} than others?",
-            f"Miksi käytän {_FI_CATEGORY[cat][0]} enemmän kuin muut?",
+            "peer_more" if group is flexible else "peer_fixed", "peers", base if big else base - 22,
+            question_for(cat, "more"), question_for(cat, "more", lang="fi"),
             f"You spend {_eur(top['diff_eur'])} more a month than similar customers",
             f"Käytät {_eur(top['diff_eur'])} enemmän kuussa kuin samankaltaiset asiakkaat",
         ))
+    if flexible:
         add(Suggestion("save_most", "peers", 65, "Where could I save the most?",
                        "Mistä voisin säästää eniten?",
-                       f"You are above similar customers in {len(more)} "
-                       f"{'category' if len(more) == 1 else 'categories'}",
-                       f"Olet samankaltaisten asiakkaiden yläpuolella {len(more)} luokassa"))
-    if less:
-        top = less[0]
-        cat = top["category"]
-        add(Suggestion(
-            "peer_less", "peers", 55 if more else 70,
-            f"Why do I spend less on {cat.lower()} than others?",
-            f"Miksi käytän {_FI_CATEGORY[cat][0]} vähemmän kuin muut?",
-            f"You spend {_eur(-top['diff_eur'])} less a month than similar customers",
-            f"Käytät {_eur(-top['diff_eur'])} vähemmän kuussa kuin samankaltaiset asiakkaat",
-        ))
+                       f"You are above similar customers in {len(flexible)} "
+                       f"{'category' if len(flexible) == 1 else 'categories'} you can influence",
+                       f"Olet samankaltaisten asiakkaiden yläpuolella {len(flexible)} luokassa, "
+                       "joihin voit vaikuttaa"))
+    if less and not flexible:
+        add(Suggestion("peer_less", "peers", 52, "Where do I spend less than others?",
+                       "Missä kulutan vähemmän kuin muut?",
+                       f"You are below similar customers in {len(less)} "
+                       f"{'category' if len(less) == 1 else 'categories'}",
+                       f"Olet samankaltaisten asiakkaiden alapuolella {len(less)} luokassa"))
     add(Suggestion("peers", "peers", 45, "How do I compare with similar customers?",
                    "Miten vertaudun samankaltaisiin asiakkaisiin?"))
 
     # --- Saving and balance
     if rate is not None and rate < 0:
-        add(Suggestion("overspend", "trend", 95, "Why am I spending more than I earn?",
-                       "Miksi kulutan enemmän kuin tienaan?",
+        add(Suggestion("overspend", "trend", 95, "How can I stop spending more than I earn?",
+                       "Miten saisin menoni pienemmiksi kuin tuloni?",
                        f"You spend {_eur(-kept)} more than you earn in an average month",
                        f"Kulutat keskimäärin {_eur(-kept)} enemmän kuin tienaat kuussa"))
     elif rate is not None and rate < 10:
@@ -151,8 +196,8 @@ def candidates(customer_id: str) -> list[Suggestion]:
     if len(trend) >= 2:
         change = trend[-1]["end_balance"] - trend[0]["end_balance"]
         if change < -0.05 * max(abs(trend[0]["end_balance"]), 1):
-            add(Suggestion("balance_down", "trend", 90, "Why has my balance gone down this year?",
-                           "Miksi saldoni on laskenut tänä vuonna?",
+            add(Suggestion("balance_down", "trend", 90, "What made my balance go down this year?",
+                           "Mikä laski saldoani tänä vuonna?",
                            f"Your balance is down {_eur(-change)} in 12 months",
                            f"Saldosi on laskenut {_eur(-change)} 12 kuukaudessa"))
         else:
@@ -173,12 +218,6 @@ def candidates(customer_id: str) -> list[Suggestion]:
     add(Suggestion("income_spending", "trend", 38, "How has my income and spending changed?",
                    "Miten tuloni ja menoni ovat muuttuneet?"))
 
-    if overview["low_activity"]:
-        add(Suggestion("low_activity", "spending", 70, "Why might my spending look low here?",
-                       "Miksi kulutukseni voi näyttää täällä pieneltä?",
-                       "You make few card purchases from this account",
-                       "Teet tältä tililtä vain vähän korttiostoksia"))
-
     # --- Compared with Finland (Statistics Finland)
     home = household.get(customer_id)
     national = opendata.national_spending(
@@ -192,7 +231,7 @@ def candidates(customer_id: str) -> list[Suggestion]:
         _, cat, eur = max(ratios)
         add(Suggestion(
             "finland_cat", "finland", 66,
-            f"How does my {cat.lower()} spending compare with the Finnish average?",
+            f"How does my {adjective(cat)} spending compare with the Finnish average?",
             f"Miten {_FI_CATEGORY[cat][1]} vertautuvat suomalaisten keskiarvoon?",
             f"People your age in Finland spend about {_eur(eur)} a month on this",
             f"Ikäisesi suomalaiset käyttävät tähän noin {_eur(eur)} kuussa",
@@ -221,8 +260,9 @@ def candidates(customer_id: str) -> list[Suggestion]:
                            "What could improve my chances next time?",
                            "Mikä parantaisi mahdollisuuksiani ensi kerralla?"))
         else:
-            add(Suggestion("mtg_look", "mortgage", 62, "What did my approved mortgage look like?",
-                           "Miltä hyväksytty asuntolainani näytti?",
+            add(Suggestion("mtg_look", "mortgage", 62,
+                           "Can you walk me through my mortgage application?",
+                           "Voitko käydä asuntolainahakemukseni läpi?",
                            "Your application was approved", "Hakemuksesi hyväksyttiin"))
             add(Suggestion("mtg_payment", "mortgage", 58,
                            "What would my monthly loan payment be?",
