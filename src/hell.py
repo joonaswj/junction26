@@ -1,2 +1,0 @@
-def hell():
-    return "Hello"
