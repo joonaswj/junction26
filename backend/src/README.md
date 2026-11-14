@@ -87,6 +87,7 @@ if __name__ == "__main__":
     testaa(funktio1())
 ```
 
+<<<<<<< HEAD:README.md
   Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa     käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
 
 
@@ -116,3 +117,6 @@ Downloa
 
 
 
+=======
+  Tällöin python ajaa testikoodin vain kun ajat kyseisen tiedoston python-interpreterillä. Jos tiedostoa käytetään kirjastona toisessa ohjelmassa, testikoodia ei ajeta.
+>>>>>>> f9f7227d0f421f9ba024ee1ab1e325bc60195d5e:backend/src/README.md
