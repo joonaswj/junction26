@@ -19,13 +19,15 @@ from pathlib import Path
 
 from openai import OpenAI
 
-try:
-    from dotenv import load_dotenv
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"  # backend/.env
 
-    # backend/src/junction26/featherless.py -> backend/.env
-    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
-except ImportError:  # python-dotenv comes with fastapi[standard]
-    pass
+
+def _load_env() -> None:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:  # python-dotenv comes with fastapi[standard]
+        return
+    load_dotenv(ENV_FILE, override=True)
 
 FEATHERLESS_URL = "https://api.featherless.ai/v1"
 # Featherless lists tool_use support for this model. The chat also works with
@@ -43,6 +45,9 @@ class LLM:
 
 @lru_cache(maxsize=1)
 def get_llm() -> LLM:
+    # Re-read backend/.env on every call until a key is found (failures aren't
+    # cached), so adding the key works without restarting the backend.
+    _load_env()
     if key := os.environ.get("FEATHERLESS_API_KEY"):
         return LLM(
             OpenAI(base_url=FEATHERLESS_URL, api_key=key, timeout=90),
@@ -56,7 +61,7 @@ def get_llm() -> LLM:
             "openai",
         )
     raise RuntimeError(
-        "No LLM API key. Add FEATHERLESS_API_KEY=... to backend/.env and restart the backend."
+        "No LLM API key. Add FEATHERLESS_API_KEY=... to backend/.env (no restart needed)."
     )
 
 
