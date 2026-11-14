@@ -222,7 +222,10 @@ def demo_customers(limit: int = 10) -> list[dict]:
     from .insights import peer_data
 
     profiles = peer_data().profiles
-    active = profiles[~profiles["low_activity"]]
+    # Most card purchases first: their spending is most complete in this data.
+    active = profiles[~profiles["low_activity"]].sort_values(
+        "purchases_per_month", ascending=False
+    )
     mortgage = load_mortgage_outcomes().set_index("customer_id")["final_decision"]
     picked = pd.concat(
         [

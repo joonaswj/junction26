@@ -12,6 +12,8 @@ app.add_middleware(
     CORSMiddleware,
     # Vite dev server and Expo web. Native apps on a phone don't need CORS.
     allow_origins=["http://localhost:5173", "http://localhost:8081"],
+    # Also allow the app opened on a phone via the laptop's local IP.
+    allow_origin_regex=r"http://(127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

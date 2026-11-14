@@ -484,6 +484,8 @@ cd frontend
 npx expo start
 ```
 
+Web GUI (Vite): `cd frontend && npm run dev`, then open http://localhost:5173. On a phone in the same network, run `npm run dev -- --host` and open `http://<laptop IP>:5173`. Start the backend with `--host 0.0.0.0` too.
+
 ## Using the data in Python
 
 ```python
