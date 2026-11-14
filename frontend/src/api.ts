@@ -62,6 +62,14 @@ export type Spending = {
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export const getDemoCustomers = () => get<DemoCustomer[]>("/demo-customers?limit=10");
+
+// Dummy login: true if the customer exists.
+export async function customerExists(id: string): Promise<boolean> {
+    const response = await fetch(`${API_URL}/customers/${encodeURIComponent(id)}`);
+    if (response.status === 404) return false;
+    if (!response.ok) throw new Error(`API request failed: ${response.status}`);
+    return true;
+}
 export const getOverview = (id: string) => get<Overview>(`/customers/${id}/overview`);
 export const getInsights = (id: string) => get<Insights>(`/customers/${id}/insights?limit=3`);
 export const getSpending = (id: string, months = 3) =>

@@ -35,10 +35,11 @@ export default function Chat() {
             <div className="messages">
                 {messages.length === 0 && (
                     <div className="chat-empty">
-                        <h2>Ask about your money</h2>
+                        <div className="assistant-avatar" aria-hidden="true">€</div>
+                        <h2>Hi! I'm your money assistant</h2>
                         <p className="muted">
-                            I can look at your spending, income and how you compare to similar
-                            users.
+                            Ask me about your spending, your income or how you compare with people
+                            like you.
                         </p>
                         <div className="suggestions">
                             {SUGGESTIONS.map((s) => (

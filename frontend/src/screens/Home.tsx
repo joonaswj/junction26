@@ -7,9 +7,11 @@ import {
     type Overview,
     type Spending,
 } from "../api";
-import { formatEur } from "../format";
+import { describePeers, formatEur, formatEurCents } from "../format";
 
 type Props = { customerId: string };
+
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fi-FI");
 
 export default function Home({ customerId }: Props) {
     const [overview, setOverview] = useState<Overview | null>(null);
@@ -24,13 +26,22 @@ export default function Home({ customerId }: Props) {
                 setInsights(i);
                 setSpending(s);
             })
-            .catch(() => setError("Could not load your data."));
+            .catch(() => setError("We couldn't load your information. Please try again later."));
     }, [customerId]);
 
-    if (error) return <div className="screen"><p className="error">{error}</p></div>;
+    if (error) {
+        return (
+            <div className="screen">
+                <p className="form-error">{error}</p>
+            </div>
+        );
+    }
     if (!overview || !insights || !spending) {
-        // The first request after the backend starts takes a few seconds.
-        return <div className="screen"><p className="muted">Loading your data…</p></div>;
+        return (
+            <div className="screen">
+                <div className="spinner" aria-label="Loading" />
+            </div>
+        );
     }
 
     const categories = Object.entries(spending.by_category_eur);
@@ -38,57 +49,66 @@ export default function Home({ customerId }: Props) {
 
     return (
         <div className="screen">
-            <section className="balance-card">
-                <span className="label">Balance</span>
-                <span className="balance">{formatEur(overview.current_balance_eur)}</span>
-                <span className="small">Data until {overview.data_until}</span>
+            <section className="card account-card">
+                <div className="account-row">
+                    <span className="account-name">Current account</span>
+                    <span className="muted small">{formatDate(overview.data_until)}</span>
+                </div>
+                <span className="balance">{formatEurCents(overview.current_balance_eur)}</span>
+                <span className="muted small">Available balance</span>
             </section>
 
-            <section className="stats">
-                <Stat label="Income / month" value={formatEur(overview.avg_monthly_income_eur)} />
-                <Stat label="Spending / month" value={formatEur(overview.avg_monthly_spending_eur)} />
+            <section className="card stats">
+                <Stat label="Income / mo" value={formatEur(overview.avg_monthly_income_eur)} />
+                <Stat label="Spending / mo" value={formatEur(overview.avg_monthly_spending_eur)} />
                 <Stat
-                    label="Savings rate"
-                    value={overview.savings_rate_pct === null ? "–" : `${overview.savings_rate_pct}%`}
+                    label="You save"
+                    value={
+                        overview.savings_rate_pct === null
+                            ? "–"
+                            : `${Math.round(overview.savings_rate_pct)} %`
+                    }
                 />
             </section>
 
             <section>
-                <h2>Compared to similar users</h2>
-                <p className="muted small">
-                    {insights.peer_count} customers: {insights.peer_group}
+                <h2 className="section-title">You compared with others</h2>
+                <p className="muted small section-subtitle">
+                    Compared with {describePeers(insights.peer_group)}, last 12 months
                 </p>
                 {insights.insights.length === 0 && (
-                    <p className="muted">Your spending is close to similar users.</p>
+                    <div className="card">
+                        <p>Your spending is close to people like you. Nice and steady!</p>
+                    </div>
                 )}
-                {insights.insights.map((i) => (
-                    <article key={i.category} className={`insight insight-${i.direction}`}>
-                        <span className="insight-amount">
-                            {i.direction === "more" ? "+" : "−"}
-                            {formatEur(Math.abs(i.diff_eur))}
-                            <span className="small"> / month</span>
-                        </span>
-                        <span className="insight-category">{i.category}</span>
-                        <p>{i.text}</p>
-                    </article>
-                ))}
-                {insights.low_activity && (
-                    <p className="muted small">
-                        You make few card purchases from this account, so we only show where you
-                        spend more.
-                    </p>
-                )}
+                <div className="insights">
+                    {insights.insights.map((i) => (
+                        <article key={i.category} className={`card insight insight-${i.direction}`}>
+                            <div className="insight-head">
+                                <span className="insight-category">{i.category}</span>
+                                <span className="insight-amount">
+                                    {i.direction === "more" ? "+" : "−"}
+                                    {formatEur(Math.abs(i.diff_eur))}
+                                    <span className="per-month"> /mo</span>
+                                </span>
+                            </div>
+                            <p>{i.text}</p>
+                        </article>
+                    ))}
+                </div>
             </section>
 
             <section>
-                <h2>Spending, last {spending.months} months</h2>
-                <p className="muted small">Total {formatEur(spending.total_eur)}</p>
-                <ul className="bars">
+                <h2 className="section-title">Spending by category</h2>
+                <p className="muted small section-subtitle">
+                    Last {spending.months} months, total {formatEur(spending.total_eur)}
+                </p>
+                <ul className="card bars">
                     {categories.map(([category, value]) => (
                         <li key={category}>
                             <div className="bar-label">
                                 <span>{category}</span>
-                                <span>{formatEur(value)}</span>
+                                <span className="bar-value">{formatEur(value)}</span>
                             </div>
                             <div className="bar-track">
                                 <div
@@ -108,7 +128,7 @@ function Stat({ label, value }: { label: string; value: string }) {
     return (
         <div className="stat">
             <span className="stat-value">{value}</span>
-            <span className="label">{label}</span>
+            <span className="muted small">{label}</span>
         </div>
     );
 }

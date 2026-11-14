@@ -1,46 +1,58 @@
-import { useEffect, useState } from "react";
-import { getDemoCustomers, type DemoCustomer } from "../api";
+import { useState, type FormEvent } from "react";
+import { customerExists } from "../api";
+import { normalizeCustomerId } from "../format";
 
 type Props = { onLogin: (customerId: string) => void };
 
-// Dummy login: pick one of the demo customers.
+// Dummy login: enter a customer ID from the dataset, e.g. CUST02868.
 export default function Login({ onLogin }: Props) {
-    const [customers, setCustomers] = useState<DemoCustomer[] | null>(null);
+    const [input, setInput] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        getDemoCustomers()
-            .then(setCustomers)
-            .catch(() => setError("Could not connect to the backend. Is it running?"));
-    }, []);
+    async function onSubmit(e: FormEvent) {
+        e.preventDefault();
+        const id = normalizeCustomerId(input);
+        if (!id) return;
+        setLoading(true);
+        setError(null);
+        try {
+            if (await customerExists(id)) {
+                onLogin(id);
+            } else {
+                setError("We couldn't find that customer ID. Check it and try again.");
+            }
+        } catch {
+            setError("Something went wrong. Please try again in a moment.");
+        } finally {
+            setLoading(false);
+        }
+    }
 
     return (
-        <div className="screen login">
-            <div className="login-header">
-                <h1>Money assistant</h1>
-                <p>Demo: choose a customer to log in as.</p>
+        <div className="login">
+            <div className="login-hero">
+                <span className="wordmark">S-Pankki</span>
+                <h1>Welcome</h1>
+                <p>Log in to see your finances and chat with your money assistant.</p>
             </div>
 
-            {error && <p className="error">{error}</p>}
-            {!customers && !error && <p className="muted">Loading…</p>}
-
-            <ul className="customer-list">
-                {customers?.map((c) => (
-                    <li key={c.customer_id}>
-                        <button className="customer" onClick={() => onLogin(c.customer_id)}>
-                            <span className="customer-id">{c.customer_id}</span>
-                            <span className="muted">
-                                Age {c.age} · {c.peer_group.split(", ").pop()}
-                            </span>
-                            {c.mortgage_decision && (
-                                <span className={`tag tag-${c.mortgage_decision}`}>
-                                    Mortgage {c.mortgage_decision}
-                                </span>
-                            )}
-                        </button>
-                    </li>
-                ))}
-            </ul>
+            <form className="login-form" onSubmit={onSubmit}>
+                <label htmlFor="customer-id">Customer ID</label>
+                <input
+                    id="customer-id"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder="e.g. CUST02868"
+                    autoComplete="username"
+                    autoCapitalize="characters"
+                    autoFocus
+                />
+                {error && <p className="form-error">{error}</p>}
+                <button className="btn-primary" type="submit" disabled={!input.trim() || loading}>
+                    {loading ? "Logging in…" : "Log in"}
+                </button>
+            </form>
         </div>
     );
 }
