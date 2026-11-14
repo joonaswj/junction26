@@ -655,3 +655,24 @@ What it changes:
 - **Groceries and utilities** are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Housing is not compared with the Finnish average at all (see above), but its share is used to explain insights.
 - **Insights** that the household explains get an `expected_because` note ("Your partner pays about 80 % of your groceries, so this account shows only part of what your household spends on it") and are shown after the others.
 - **The assistant and the suggested questions** know the details. Without them, a comparison that would benefit shows an invitation to add them.
+
+# Hosting for the judges: one URL
+
+The backend also serves the built frontend, so the whole app (UI and API) is one address.
+
+```bash
+cd frontend && npm run build          # rebuild after every frontend change
+cd ../backend && uv run uvicorn main:app --port 8000
+```
+
+Open http://localhost:8000. Then share it with a tunnel (free, no account, HTTPS, works on phones):
+
+```bash
+cloudflared tunnel --url http://localhost:8000
+```
+
+It prints a link like `https://something.trycloudflare.com`. Keep both terminals and the laptop running while judges test. The link changes every time the tunnel restarts.
+
+Install cloudflared on a Mac without Homebrew: download `cloudflared-darwin-arm64.tgz` (Apple Silicon) from https://github.com/cloudflare/cloudflared/releases/latest, unpack it and move `cloudflared` to `~/.local/bin`.
+
+For frontend development, `npm run dev` (port 5173) still talks to the backend on port 8000. `GET /health` returns `{"status": "ok"}`.

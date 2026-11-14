@@ -1,8 +1,11 @@
 // Backend address. Set VITE_API_URL in frontend/.env.local to override.
-// Default: same host as the page, port 8000, so it also works when the app
-// is opened on a phone via the laptop's IP address.
+// - Built app (npm run build), served by the backend: the same address as the
+//   page, so the whole app works on one URL (also through a tunnel).
+// - Dev server (npm run dev): the backend on port 8000 of the same host, so it
+//   also works when opened on a phone via the laptop's IP address.
 const API_URL =
-    import.meta.env.VITE_API_URL ?? `http://${window.location.hostname}:8000`;
+    import.meta.env.VITE_API_URL ??
+    (import.meta.env.DEV ? `http://${window.location.hostname}:8000` : "");
 
 async function get<T>(path: string): Promise<T> {
     const response = await fetch(`${API_URL}${path}`);
