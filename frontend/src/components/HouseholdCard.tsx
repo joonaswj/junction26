@@ -6,6 +6,7 @@ import {
     type HouseholdInfo,
     type HouseholdInput,
 } from "../api";
+import { formatEur } from "../format";
 
 type Props = {
     customerId: string;
@@ -17,6 +18,17 @@ type Props = {
 
 const CHILD_OPTIONS = [0, 1, 2, 3, 4];
 const DISMISS_KEY = "householdPromptDismissed";
+const EMPTY: HouseholdInput = {
+    partner: false,
+    children: 0,
+    partner_housing_pct: 50,
+    partner_groceries_pct: 50,
+};
+// The two costs a couple shares, each with its own slider.
+const SLIDERS = [
+    { field: "partner_housing_pct", category: "Housing", label: "housing" },
+    { field: "partner_groceries_pct", category: "Groceries", label: "groceries" },
+] as const;
 
 function wasDismissed(): boolean {
     try {
@@ -28,14 +40,15 @@ function wasDismissed(): boolean {
 
 /**
  * Optional household details for fairer comparisons: who shares the costs,
- * and roughly how much of the shared costs a partner pays (a slider).
+ * and roughly how much of the housing and of the groceries a partner pays
+ * (two sliders, because couples often split them differently).
  * Never required. The customer can change or remove their answers any time.
  */
 export default function HouseholdCard({ customerId, onChange, highlight }: Props) {
     const [info, setInfo] = useState<HouseholdInfo | null>(null);
     const [editing, setEditing] = useState(false);
     const [dismissed, setDismissed] = useState(wasDismissed);
-    const [draft, setDraft] = useState<HouseholdInput>({ partner: false, children: 0, partner_share_pct: 50 });
+    const [draft, setDraft] = useState<HouseholdInput>(EMPTY);
     const [saving, setSaving] = useState(false);
     const [failed, setFailed] = useState(false);
 
@@ -47,18 +60,18 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
 
     if (!info) return null;
     const current = info.household;
-    const shared = info.shared_categories.map((c) => c.toLowerCase()).join(", ");
 
     function startEditing() {
         setDraft(
-            current
+            current?.partner
                 ? {
-                      partner: current.partner,
+                      partner: true,
                       children: current.children,
-                      // Keep a sensible slider position if they add a partner later.
-                      partner_share_pct: current.partner ? current.partner_share_pct : 50,
+                      partner_housing_pct: current.partner_housing_pct,
+                      partner_groceries_pct: current.partner_groceries_pct,
                   }
-                : { partner: false, children: 0, partner_share_pct: 50 },
+                : // Keep the sliders in the middle in case they add a partner.
+                  { ...EMPTY, children: current?.children ?? 0 },
         );
         setFailed(false);
         setEditing(true);
@@ -122,38 +135,46 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
                     </div>
                 </fieldset>
 
+                {draft.partner &&
+                    SLIDERS.map(({ field, category, label }) => {
+                        const pct = draft[field];
+                        const mine = info.my_monthly_eur[category] ?? 0;
+                        // What the slider position means for the whole household, in euros.
+                        const household = mine / (1 - pct / 100);
+                        return (
+                            <fieldset key={field}>
+                                <legend>
+                                    <label htmlFor={field}>How much of the {label} does your partner pay?</label>
+                                </legend>
+                                <p className="slider-value">
+                                    About <strong>{pct}&nbsp;%</strong>
+                                </p>
+                                <input
+                                    id={field}
+                                    type="range"
+                                    min={0}
+                                    max={info.max_partner_share_pct}
+                                    step={5}
+                                    value={pct}
+                                    onChange={(e) => setDraft({ ...draft, [field]: Number(e.target.value) })}
+                                />
+                                <div className="slider-ends">
+                                    <span>I pay it all</span>
+                                    <span>Partner pays most</span>
+                                </div>
+                                <p className="slider-preview">
+                                    You pay <strong>{formatEur(mine)}</strong> a month for {label}, so your household
+                                    pays about <strong>{formatEur(household)}</strong>
+                                    {pct > 0 && <> ({formatEur(household - mine)} from your partner)</>}.
+                                </p>
+                            </fieldset>
+                        );
+                    })}
                 {draft.partner && (
-                    <fieldset>
-                        <legend>
-                            <label htmlFor="partner-share">
-                                How much of your shared costs does your partner pay?
-                            </label>
-                        </legend>
-                        <p className="slider-value">
-                            About <strong>{draft.partner_share_pct}&nbsp;%</strong>
-                            <span className="muted">
-                                {" "}
-                                · you pay about {100 - draft.partner_share_pct}&nbsp;%
-                            </span>
-                        </p>
-                        <input
-                            id="partner-share"
-                            type="range"
-                            min={0}
-                            max={info.max_partner_share_pct}
-                            step={5}
-                            value={draft.partner_share_pct}
-                            onChange={(e) => setDraft({ ...draft, partner_share_pct: Number(e.target.value) })}
-                        />
-                        <div className="slider-ends">
-                            <span>I pay everything</span>
-                            <span>Partner pays most</span>
-                        </div>
-                        <p className="muted small">
-                            Shared costs are {shared}. Costs like restaurants, clothes or hobbies count as
-                            your own.
-                        </p>
-                    </fieldset>
+                    <p className="muted small">
+                        Only housing and groceries count as shared. Everything else is treated as your own
+                        spending.
+                    </p>
                 )}
 
                 {failed && <p className="form-error">We couldn't save that. Please try again.</p>}
@@ -201,8 +222,9 @@ export default function HouseholdCard({ customerId, onChange, highlight }: Props
         <section className={`card household invite${highlight ? " highlight" : ""}`}>
             <strong>Make your comparisons fairer</strong>
             <p className="muted small">
-                Your account only shows what you pay yourself. If you share costs with a partner or have
-                children at home, tell us and we'll compare you with households like yours. It's optional.
+                Your account only shows what you pay yourself. If you share housing or groceries with a
+                partner, or have children at home, tell us and we'll compare you with households like yours.
+                It's optional.
             </p>
             <div className="button-row">
                 <button className="btn-primary" onClick={startEditing}>

@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from . import chat as chatbot
 from . import explore as explorer
-from . import finance, guardrails, household, opendata, visuals
+from . import costs, finance, guardrails, household, opendata, visuals
 from .data import load_transactions
 from .insights import SPENDING_CATEGORIES
 
@@ -66,6 +66,8 @@ def dashboard_visuals(customer_id: str):
     """Chart specs for the overview screen (same format as charts in chat replies)."""
     _call(finance.get_profile, customer_id)
     return {
+        # 12 months, so it adds up to the overview's headline figures.
+        "budget": visuals.budget(customer_id, 12),
         "income_vs_spending": visuals.income_vs_spending(customer_id, 6),
         "spending": visuals.spending(customer_id, 3),
         "peers": visuals.peers(customer_id),
@@ -159,17 +161,25 @@ def my_data(customer_id: str):
 class HouseholdIn(BaseModel):
     partner: bool = False
     children: int = Field(0, ge=0, le=household.MAX_CHILDREN)
-    partner_share_pct: int = Field(
+    partner_housing_pct: int = Field(
         0, ge=0, le=household.MAX_PARTNER_SHARE,
-        description="How much of the shared costs the partner pays, estimated",
+        description="How much of the housing costs the partner pays, estimated",
+    )
+    partner_groceries_pct: int = Field(
+        0, ge=0, le=household.MAX_PARTNER_SHARE,
+        description="How much of the groceries the partner pays, estimated",
     )
 
 
 def _household_response(customer_id: str) -> dict:
+    usual = costs.usual(customer_id)
     return {
         "household": household.as_dict(household.get(customer_id)),
         "shared_categories": household.SHARED_CATEGORIES,
         "max_partner_share_pct": household.MAX_PARTNER_SHARE,
+        # What this account pays in a usual month, so the form can show what
+        # a slider position means in euros for the whole household.
+        "my_monthly_eur": {c: usual[c] for c in household.SHARED_CATEGORIES},
     }
 
 
@@ -184,7 +194,8 @@ def get_household(customer_id: str):
 def put_household(customer_id: str, body: HouseholdIn):
     """Save household details. Optional, used for fairer comparisons."""
     _call(finance.get_profile, customer_id)
-    household.save(customer_id, body.partner, body.children, body.partner_share_pct)
+    household.save(customer_id, body.partner, body.children, body.partner_housing_pct,
+                   body.partner_groceries_pct)
     return _household_response(customer_id)
 
 

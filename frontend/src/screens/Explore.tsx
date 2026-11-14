@@ -29,6 +29,7 @@ type Props = {
 
 const GROUP_LABELS: Record<GroupBy, string> = {
     category: "Category",
+    type: "Cost type",
     month: "Month",
     merchant: "Merchant",
     weekday: "Weekday",

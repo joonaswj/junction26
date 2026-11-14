@@ -396,3 +396,50 @@ def mortgage_calculator(
             for k in ("approved_pct", "median_ltv_approved", "median_down_payment_pct_approved")
         },
     }
+
+
+# --- Saving and investing ------------------------------------------------------
+
+# General, neutral points the assistant may use. Not advice, no products.
+INVESTING_BASICS = [
+    "Before investing, many people keep a buffer for surprises on an account they can "
+    "use straight away. How big it should be is personal.",
+    "Investing suits money you won't need for several years. The value goes up and down, "
+    "and you can lose money.",
+    "Spreading money over many investments (diversification) lowers the risk that one of "
+    "them fails.",
+    "Costs and fees eat into returns, so they are worth comparing.",
+    "Investing a fixed amount regularly evens out the effect of timing.",
+]
+INVESTING_DISCLAIMER = (
+    "General information, not investment advice. For advice that fits your situation, "
+    "talk to an S-Pankki advisor."
+)
+
+
+def get_investing_summary(customer_id: str) -> dict:
+    """The customer's own saving and investing figures, plus general basics."""
+    year = _last_months(_tx(customer_id), 12)
+    deposits = year[year["category"] == "Invest Deposit"]
+    withdrawn = float(year.loc[year["category"] == "Invest Withdraw", "tx_amount_eur"].sum())
+    invested = float(-deposits["tx_amount_eur"].sum())
+    overview = get_overview(customer_id)
+    income = overview["avg_monthly_income_eur"]
+    spending = overview["avg_monthly_spending_eur"]
+    balance = overview["current_balance_eur"]
+    return {
+        "invests_from_this_account": invested > 0,
+        "invested_last_12_months_eur": _r(invested) + 0.0,
+        "withdrawn_from_investments_last_12_months_eur": _r(withdrawn),
+        "avg_monthly_invested_eur": _r(invested / 12) + 0.0,
+        "months_with_an_investment": int(deposits["tx_date"].dt.to_period("M").nunique()),
+        "invested_share_of_income_pct": round(invested / 12 / income * 100, 1) if income else None,
+        "avg_monthly_income_eur": income,
+        "avg_monthly_spending_eur": spending,
+        # What is left after spending and investing, on average.
+        "avg_monthly_left_on_account_eur": _r(income - spending - invested / 12),
+        "balance_eur": balance,
+        "balance_covers_months_of_spending": round(balance / spending, 1) if spending else None,
+        "general_basics": INVESTING_BASICS,
+        "disclaimer": INVESTING_DISCLAIMER,
+    }

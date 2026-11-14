@@ -20,13 +20,13 @@ from functools import lru_cache
 
 import pandas as pd
 
-from . import finance, household, opendata
+from . import costs, finance, household, opendata
 from .data import load_transactions
 from .insights import SPENDING_CATEGORIES, _peers, peer_data
 from .suggestions import adjective, question_for
 
 MEASURES = ["spending", "income", "saved", "balance"]
-GROUPS = ["month", "category", "merchant", "weekday"]
+GROUPS = ["category", "type", "month", "merchant", "weekday"]
 COMPARES = ["none", "peers", "finland"]
 PERIODS = [3, 6, 12, 24]
 WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -102,7 +102,8 @@ def _clean(measure, group_by, months, categories, compare, month=None) -> dict:
     if month:
         # One month: always spending, sliced inside the month.
         measure = "spending"
-        group_by = group_by if group_by in ("category", "merchant", "weekday") else "category"
+        group_by = (group_by if group_by in ("category", "type", "merchant", "weekday")
+                    else "category")
         months = 1
     if measure != "spending":
         group_by, compare, categories = "month", "none", None
@@ -111,7 +112,7 @@ def _clean(measure, group_by, months, categories, compare, month=None) -> dict:
     cats = [finance._match_category(c) for c in (categories or [])]
     cats = [c for c in SPENDING_CATEGORIES if c in cats] or list(SPENDING_CATEGORIES)
     compare = compare if compare in COMPARES else "none"
-    if group_by in ("merchant", "weekday"):
+    if group_by in ("type", "merchant", "weekday"):
         compare = "none"
     return {"measure": measure, "group_by": group_by, "months": months,
             "categories": cats, "compare": compare, "month": month}
@@ -200,15 +201,15 @@ def explore(
             f"(consumption unit) for {whom}. Categories are matched approximately."
         )
         if home and any(factor(c) != 1 for c in used):
-            shared = [c.lower() for c in used if factor(c) != 1]
-            how = (f"scaled up to your whole household (you said your partner pays about "
-                   f"{home.partner_share_pct} %) and " if home.partner else "")
-            notes.append(
-                f"Your shared costs ({', '.join(shared)}) are {how}divided by your household's "
-                f"size ({home.consumption_units:.1f} consumption units: first adult 1, second "
-                "adult 0.5, each child 0.3), so both sides are per person. Personal costs are "
-                "shown as they are."
-            )
+            for c in (c for c in used if factor(c) != 1):
+                how = (f"scaled up to your whole household (you said your partner pays about "
+                       f"{home.partner_share_pct(c)} %) and " if home.partner else "")
+                notes.append(
+                    f"Your {c.lower()} are {how}divided by your household's size "
+                    f"({home.consumption_units:.1f} consumption units: first adult 1, second "
+                    "adult 0.5, each child 0.3), so both sides are per person. Other costs are "
+                    "shown as they are."
+                )
         for c in used:
             if national["categories"][c]["caveat"]:
                 notes.append(f"{c}: {national['categories'][c]['caveat']}")
@@ -316,36 +317,114 @@ def explore(
             "series": series,
             "colors": colors,
         }
-
-    elif q["group_by"] == "category":
-        sel = tx[tx["category"].isin(cats)]
-        totals = (-sel["tx_amount_eur"]).groupby(sel["category"], observed=True).sum()
-        totals = {c: round(float(totals.get(c, 0.0)), 2) for c in cats}
-        total = sum(totals.values())
         if q["compare"] == "none":
-            ordered = sorted(totals.items(), key=lambda kv: -kv[1])
+            # The customer's own normal, to read a heavy or light month against.
+            normal = round(sum(costs.usual(customer_id)[c] for c in cats), 2)
+            visual["reference"] = {"label": "Your usual month (12-month average)",
+                                   "value": normal}
+
+    elif q["group_by"] in ("category", "type"):
+        by_type = q["group_by"] == "type"
+        usual = costs.usual(customer_id)  # the customer's 12-month average per category
+        if month:
+            # Inside one month the real amounts are the point. "usual" lets a
+            # heavy month be read against the customer's own normal.
+            sel = tx[tx["category"].isin(cats)]
+            sums = (-sel["tx_amount_eur"]).groupby(sel["category"], observed=True).sum()
+            monthly = {c: round(float(sums.get(c, 0.0)), 2) for c in cats}
+            basis = {c: 1 for c in cats}
+            unit = "total"
+        else:
+            # Per month, each category on the basis that makes sense for it:
+            # essentials that vary are always the 12-month average.
+            figures = costs.monthly_figures(customer_id, months)
+            monthly = {c: figures[c]["eur"] for c in cats}
+            basis = {c: figures[c]["basis_months"] for c in cats}
+            unit = "a month"
+            smoothed = [c for c in cats if costs.uses_yearly_average(c)]
+            if smoothed and months != costs.YEAR:
+                notes.append(
+                    f"Essentials that vary ({', '.join(c.lower() for c in smoothed)}) are your "
+                    "12-month average, whatever period you pick, so one heavy month doesn't "
+                    "distort the picture. Other costs are the average of the selected period."
+                )
+        total = round(sum(monthly.values()), 2)
+        groups = [
+            {"key": key, "label": info["label"], "description": info["description"],
+             "value": round(sum(monthly[c] for c in info["categories"] if c in monthly), 2),
+             "categories": [c for c in info["categories"] if c in monthly]}
+            for key, info in costs.COST_TYPES.items()
+        ]
+        groups = [g for g in groups if g["categories"]]
+        when = f"in {period}" if month else "in an average month"
+
+        if q["compare"] == "none" and by_type:
+            visual = {"type": "bars", "title": f"{scope.capitalize()} by cost type",
+                      "subtitle": f"{period if month else 'An average month'}, total".capitalize(),
+                      "total": total,
+                      "items": [{"label": g["label"], "value": g["value"], "key": g["key"],
+                                 "categories": g["categories"], "note": g["description"]}
+                                for g in groups]}
+            table = {"columns": ["Cost type", "Per month" if not month else "Total", "Categories"],
+                     "rows": [[g["label"], g["value"], ", ".join(g["categories"])] for g in groups]}
+            parts = ", ".join(f"{_eur(g['value'])} on {g['label'].lower()}" for g in groups)
+            summary = f"You {'spent' if month else 'spend'} {_eur(total)} {when}: {parts}."
+            free = next((g for g in groups if g["key"] == "free"), None)
+            questions = ["How is my spending split between needs and wants?"]
+            if free and free["value"] > 0:
+                questions.append("How could I reduce my free-choice spending?")
+        elif q["compare"] == "none":
+            items = []
+            for g in groups:
+                for c in sorted(g["categories"], key=lambda c: -monthly[c]):
+                    item = {"label": c, "value": monthly[c], "group": g["key"]}
+                    if month and usual.get(c):
+                        item["usual"] = usual[c]
+                    items.append(item)
             visual = {"type": "bars", "title": f"{scope.capitalize()} by category",
-                      "subtitle": f"{period[0].upper() + period[1:]}, total", "total": round(total, 2),
-                      "items": [{"label": c, "value": v} for c, v in ordered if v > 0]}
-            table = {"columns": ["Category", f"Total, {period}", "Per month"],
-                     "rows": [[c, v, round(v / months, 2)] for c, v in ordered]}
-            if ordered and total > 0:
-                top, top_v = ordered[0]
-                summary = (f"You spent {_eur(total)} in {the_period}. {top} was the biggest "
-                           f"part: {_eur(top_v)}, {top_v / total * 100:.0f} % of it.")
-            else:
-                summary = f"No {scope} in {the_period}."
+                      "subtitle": f"{period if month else 'An average month'}, total".capitalize(),
+                      "total": total,
+                      "groups": [{k: g[k] for k in ("key", "label", "value")} for g in groups],
+                      "items": [i for i in items if i["value"] > 0 or not month]}
             if month:
+                table = {"columns": ["Category", "Cost type", f"Total, {period}", "Your usual month"],
+                         "rows": [[i["label"], costs.COST_TYPES[i["group"]]["label"], i["value"],
+                                   usual.get(i["label"], 0.0)] for i in items]}
+                normal = round(sum(usual[c] for c in cats), 2)
+                diff = total - normal
+                summary = (
+                    f"You spent {_eur(total)} in {period}, {_eur(abs(diff))} "
+                    f"{'more' if diff > 0 else 'less'} than your usual month ({_eur(normal)})."
+                )
+                heavy = max(items, key=lambda i: i["value"] - usual.get(i["label"], 0.0), default=None)
+                if heavy and heavy["value"] - usual.get(heavy["label"], 0.0) > 50:
+                    summary += (
+                        f" {heavy['label']} stood out: {_eur(heavy['value'])} against a usual "
+                        f"{_eur(usual[heavy['label']])}."
+                    )
                 questions = [f"What did I spend on in {period}?",
                              f"Was {period} a normal month for me?"]
             else:
+                table = {"columns": ["Category", "Cost type", "Per month", "Averaged over"],
+                         "rows": [[i["label"], costs.COST_TYPES[i["group"]]["label"], i["value"],
+                                   f"{basis[i['label']]} months"] for i in items]}
+                parts = ", ".join(f"{_eur(g['value'])} on {g['label'].lower()}" for g in groups)
+                summary = f"You spend {_eur(total)} {when}"
+                summary += f": {parts}." if len(groups) > 1 else f" on {scope.replace(' spending', '')}."
                 questions = ["Where does my money go?" if all_cats
                              else f"Tell me about my {scope}.",
                              "Where could I save the most?"]
         else:
-            monthly = {c: round(v / months, 2) for c, v in totals.items()}
             if q["compare"] == "peers":
-                bench = _peer_median(_peer_ids(customer_id), tuple(cats), months, "category", month)
+                peers = _peer_ids(customer_id)
+                if month:
+                    bench = _peer_median(peers, tuple(cats), months, "category", month)
+                else:
+                    # Same basis on both sides: 12 months for essentials that vary.
+                    bench = {}
+                    for n in sorted(set(basis.values())):
+                        group_cats = tuple(c for c in cats if basis[c] == n)
+                        bench.update(_peer_median(peers, group_cats, n, "category"))
                 bench_label, cls, short = peer_label, "peer", "Typical similar customer"
                 them = "the typical similar customer"
                 add_peer_note()
@@ -372,8 +451,9 @@ def explore(
             ]
             items.sort(key=lambda i: -abs(i["you"] - i["peers"]))
             visual = {"type": "compare", "title": f"{scope.capitalize()}: you and others",
-                      "subtitle": f"Average per month, {period}", "you_label": you_label,
-                      "peer_label": bench_label, "peer_class": cls, "items": items}
+                      "subtitle": (f"{period}" if month else "An average month"),
+                      "you_label": you_label, "peer_label": bench_label, "peer_class": cls,
+                      "items": items}
             table = {"columns": ["Category", "You / month", f"{short} / month", "Difference"],
                      "rows": [[i["label"], i["you"], i["peers"], round(i["you"] - i["peers"], 2)]
                               for i in items]}

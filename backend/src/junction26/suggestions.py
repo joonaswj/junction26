@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from . import finance, household, opendata
+from . import costs, finance, household, opendata
 
 _FINNISH = re.compile(
     r"[äöÄÖ]|\b(mitä|miten|paljonko|kuinka|minun|rahaa|olen|onko|voinko|kerro|asuntolaina"
@@ -248,6 +248,47 @@ def candidates(customer_id: str) -> list[Suggestion]:
                        "Miten vertaudun ikäisteni suomalaisten keskiarvoon?",
                        "Open data from Statistics Finland", "Tilastokeskuksen avointa dataa"))
 
+    # --- Investing, only when it is relevant for this customer
+    investing = finance.get_investing_summary(customer_id)
+    left = investing["avg_monthly_left_on_account_eur"]
+    covers = investing["balance_covers_months_of_spending"] or 0
+    if investing["invests_from_this_account"]:
+        invested = investing["invested_last_12_months_eur"]
+        add(Suggestion("inv_how_much", "investing", 60, "How much have I invested this year?",
+                       "Paljonko olen sijoittanut tänä vuonna?",
+                       f"You moved {_eur(invested)} into investments in the last 12 months",
+                       f"Siirsit sijoituksiin {_eur(invested)} viimeisen 12 kuukauden aikana"))
+        add(Suggestion("inv_share", "investing", 50, "What share of my income do I invest?",
+                       "Kuinka suuren osan tuloistani sijoitan?"))
+    elif covers >= 6 and left > 0:
+        add(Suggestion("inv_start", "investing", 74, "What should I know before I start investing?",
+                       "Mitä minun pitäisi tietää ennen kuin alan sijoittaa?",
+                       f"Your balance covers about {covers:.0f} months of your spending",
+                       f"Saldosi kattaa noin {covers:.0f} kuukauden menosi"))
+        add(Suggestion("inv_room", "investing", 56,
+                       "How much could I set aside for investing each month?",
+                       "Paljonko voisin laittaa sivuun sijoittamiseen kuukaudessa?",
+                       f"About {_eur(left)} is left on your account each month",
+                       f"Tilillesi jää noin {_eur(left)} kuussa"))
+    elif left >= 200:
+        add(Suggestion("inv_room", "investing", 54,
+                       "How much could I set aside for investing each month?",
+                       "Paljonko voisin laittaa sivuun sijoittamiseen kuukaudessa?",
+                       f"About {_eur(left)} is left on your account each month",
+                       f"Tilillesi jää noin {_eur(left)} kuussa"))
+
+    # --- Needs and wants
+    plan = costs.budget(customer_id, 12)
+    free = next(s for s in plan["segments"] if s["key"] == "free")
+    if free["share_pct"] and free["share_pct"] >= 25:
+        add(Suggestion("free_choice", "spending", 68, "How could I reduce my free-choice spending?",
+                       "Miten voisin vähentää vapaavalintaista kulutustani?",
+                       f"Free-choice spending takes {free['share_pct']} % of your income",
+                       f"Vapaavalintainen kulutus vie {free['share_pct']} % tuloistasi"))
+    add(Suggestion("needs_wants", "spending", 44,
+                   "How is my spending split between needs and wants?",
+                   "Miten kulutukseni jakautuu välttämättömiin ja vapaavalintaisiin menoihin?"))
+
     # --- Home and mortgage
     if mortgage["has_mortgage_application"]:
         if mortgage["final_decision"] == "rejected":
@@ -309,8 +350,9 @@ _NEXT_TOPICS = {
     "spending": ["peers", "finland", "trend", "spending"],
     "peers": ["finland", "spending", "trend", "peers"],
     "finland": ["peers", "spending", "trend"],
-    "trend": ["spending", "peers", "trend"],
+    "trend": ["investing", "spending", "peers", "trend"],
     "mortgage": ["mortgage", "trend", "spending"],
+    "investing": ["trend", "spending", "investing"],
 }
 # A question the tool has just answered isn't worth suggesting again.
 _ANSWERED_BY = {
@@ -318,6 +360,7 @@ _ANSWERED_BY = {
     "mortgage_calculator": {"mtg_afford"},
     "compare_to_finland": {"finland"},
     "get_overview": {"savings"},
+    "get_investing_overview": {"inv_how_much", "inv_start"},
 }
 
 
@@ -348,7 +391,8 @@ def follow_ups(
     order: list[str] = []
     for topic in topics or []:
         order += [t for t in _NEXT_TOPICS.get(topic, []) if t not in order]
-    order += [t for t in ("spending", "peers", "trend", "finland", "mortgage") if t not in order]
+    order += [t for t in ("spending", "peers", "trend", "finland", "investing", "mortgage")
+              if t not in order]
 
     picked: list[Suggestion] = []
     # One question per topic first, walking the topics in order.

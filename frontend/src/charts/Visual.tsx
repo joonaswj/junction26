@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type {
     BarsVisual,
+    BudgetVisual,
     CalcVisual,
     ColumnsVisual,
     CompareVisual,
@@ -34,6 +35,8 @@ type Props = Actions & { spec: VisualSpec };
  */
 export default function Visual({ spec, ...actions }: Props) {
     switch (spec.type) {
+        case "budget":
+            return <Budget spec={spec} {...actions} />;
         case "bars":
             return <Bars spec={spec} {...actions} />;
         case "columns":
@@ -153,18 +156,29 @@ function Footer(props: Actions & { spec: VisualSpec }) {
 
 const lower = (s: string) => s.toLowerCase();
 
-/* Horizontal bars: one value per row, every bar labelled. Tap a row. */
+/* Horizontal bars: one value per row, every bar labelled. Tap a row.
+   Rows can be grouped by cost type, and can carry the customer's "usual"
+   month so a heavy month is read against their own normal. */
 function Bars({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: BarsVisual }) {
     const [selected, setSelected] = useState<string | null>(null);
-    const max = Math.max(...spec.items.map((i) => i.value), 1);
-    const kind = spec.explore?.group_by; // category | merchant | weekday
+    const max = Math.max(...spec.items.flatMap((i) => [i.value, i.usual ?? 0]), 1);
+    const kind = spec.explore?.group_by; // category | type | merchant | weekday
     const month = spec.explore?.month ?? null;
-    const interactive = (kind === "category" || kind === "merchant") && !!(onAsk || onExplore);
+    const interactive =
+        (kind === "category" || kind === "type" || kind === "merchant") && !!(onAsk || onExplore);
     const item = spec.items.find((i) => i.label === selected);
     const when = month ? ` in ${formatMonthYear(month)}` : "";
 
     let drill: Action | undefined;
-    if (item && onExplore && kind === "category") {
+    let askText = item ? `Tell me about my ${lower(item.label)} spending${when}.` : "";
+    if (item && kind === "merchant") askText = `What did I buy from ${item.label}${when}?`;
+    if (item && kind === "type") askText = `Tell me about my ${lower(item.label)}${when}.`;
+    if (item && onExplore && kind === "type") {
+        drill = {
+            text: "See the categories",
+            run: () => onExplore({ ...spec.explore, group_by: "category", categories: item.categories }),
+        };
+    } else if (item && onExplore && kind === "category") {
         drill = month
             ? {
                   text: "See the merchants",
@@ -181,6 +195,66 @@ function Bars({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButt
               };
     }
 
+    const renderRow = (row: BarsVisual["items"][number]) => {
+        const diff = row.usual === undefined ? 0 : row.value - row.usual;
+        const body = (
+            <>
+                <div className="viz-row">
+                    <span>{row.label}</span>
+                    <span className="viz-value">
+                        {formatEur(row.value)}
+                        {spec.show_share !== false && (
+                            <span className="viz-share">
+                                {Math.round((row.value / (spec.total || 1)) * 100)}&nbsp;%
+                            </span>
+                        )}
+                    </span>
+                </div>
+                <div className="viz-track">
+                    <div className="viz-fill s1" style={{ width: `${(row.value / max) * 100}%` }} />
+                    {row.usual !== undefined && (
+                        <span className="viz-usual" style={{ left: `${(row.usual / max) * 100}%` }} />
+                    )}
+                </div>
+                {row.usual !== undefined && (
+                    <span className="viz-usual-text">
+                        Usually {formatEur(row.usual)}
+                        {Math.abs(diff) >= 20 && ` · ${formatEur(Math.abs(diff))} ${diff > 0 ? "more" : "less"} this month`}
+                    </span>
+                )}
+                {row.note && <span className="viz-usual-text">{row.note}</span>}
+            </>
+        );
+        return (
+            <li key={row.label} className={row.label === selected ? "selected" : ""}>
+                {interactive ? (
+                    <button
+                        type="button"
+                        className="viz-tap"
+                        onClick={() => setSelected(row.label === selected ? null : row.label)}
+                        aria-pressed={row.label === selected}
+                    >
+                        {body}
+                    </button>
+                ) : (
+                    body
+                )}
+                {row.label === selected && item && (
+                    <Focus
+                        label={
+                            <>
+                                <strong>{item.label}</strong> · {formatEur(item.value)}
+                            </>
+                        }
+                        onClose={() => setSelected(null)}
+                        ask={onAsk && { text: "Ask about this", run: () => onAsk(askText) }}
+                        drill={drill}
+                    />
+                )}
+            </li>
+        );
+    };
+
     return (
         <Figure
             title={spec.title}
@@ -190,66 +264,29 @@ function Bars({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButt
                 </>
             }
         >
-            <ul className="viz-bars">
-                {spec.items.map((row) => {
-                    const body = (
-                        <>
-                            <div className="viz-row">
-                                <span>{row.label}</span>
-                                <span className="viz-value">
-                                    {formatEur(row.value)}
-                                    {spec.show_share !== false && (
-                                        <span className="viz-share">
-                                            {Math.round((row.value / spec.total) * 100)}&nbsp;%
-                                        </span>
-                                    )}
-                                </span>
-                            </div>
-                            <div className="viz-track">
-                                <div className="viz-fill s1" style={{ width: `${(row.value / max) * 100}%` }} />
-                            </div>
-                        </>
-                    );
-                    return (
-                        <li key={row.label} className={row.label === selected ? "selected" : ""}>
-                            {interactive ? (
-                                <button
-                                    type="button"
-                                    className="viz-tap"
-                                    onClick={() => setSelected(row.label === selected ? null : row.label)}
-                                    aria-pressed={row.label === selected}
-                                >
-                                    {body}
-                                </button>
-                            ) : (
-                                body
-                            )}
-                            {row.label === selected && item && (
-                <Focus
-                    label={
-                        <>
-                            <strong>{item.label}</strong> · {formatEur(item.value)}
-                        </>
-                    }
-                    onClose={() => setSelected(null)}
-                    ask={
-                        onAsk && {
-                            text: "Ask about this",
-                            run: () =>
-                                onAsk(
-                                    kind === "merchant"
-                                        ? `What did I buy from ${item.label}${when}?`
-                                        : `Tell me about my ${lower(item.label)} spending${when}.`,
-                                ),
-                        }
-                    }
-                    drill={drill}
-                />
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
+            {spec.groups ? (
+                spec.groups.map((group) => (
+                    <div key={group.key} className="viz-group">
+                        <div className="viz-group-head">
+                            <span>
+                                <i className={`viz-swatch type-${group.key}`} />
+                                {group.label}
+                            </span>
+                            <span>{formatEur(group.value)}</span>
+                        </div>
+                        <ul className="viz-bars">
+                            {spec.items.filter((i) => i.group === group.key).map(renderRow)}
+                        </ul>
+                    </div>
+                ))
+            ) : (
+                <ul className="viz-bars">{spec.items.map(renderRow)}</ul>
+            )}
+            {spec.items.some((i) => i.usual !== undefined) && (
+                <p className="viz-hint">
+                    <span className="viz-usual-key" /> The line marks your usual month (12-month average).
+                </p>
+            )}
             {interactive && !item && <p className="viz-hint">Tap a row to ask about it or look closer.</p>}
             <Footer spec={spec} onAsk={onAsk} onExplore={onExplore} hideExploreButton={hideExploreButton} hideAskButton={hideAskButton} question={question ?? "Where does my money go?"} />
         </Figure>
@@ -262,7 +299,7 @@ function Columns({ spec, onAsk, onExplore, question, hideExploreButton, hideAskB
     const [touched, setTouched] = useState(false);
     const at = Math.min(selected, spec.labels.length - 1);
     const all = spec.series.flatMap((s) => s.values);
-    const max = Math.max(...all, 0);
+    const max = Math.max(...all, spec.reference?.value ?? 0, 0);
     const min = Math.min(...all, 0);
     const range = max - min || 1;
     const zero = (-min / range) * 100; // baseline position from the bottom, %
@@ -307,6 +344,16 @@ function Columns({ spec, onAsk, onExplore, question, hideExploreButton, hideAskB
                 ))}
             </div>
             <div className="viz-columns">
+                {spec.reference && (
+                    <span
+                        className="viz-reference"
+                        style={{ bottom: `${zero + (spec.reference.value / range) * 100}%` }}
+                    >
+                        <span>
+                            {spec.reference.label.split(" (")[0]} {formatEur(spec.reference.value)}
+                        </span>
+                    </span>
+                )}
                 {spec.labels.map((month, i) => (
                     <button
                         key={month}
@@ -615,6 +662,147 @@ function LtvMeter(props: { ltv: number; limit: number; typical?: number }) {
                     ` Approved applications typically had ${formatPct(props.typical)}.`}
             </p>
         </div>
+    );
+}
+
+/* Where an average month's income goes: fixed, varies, free choice, left over.
+   Tap a part to see what is in it. */
+function Budget({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: BudgetVisual }) {
+    const [open, setOpen] = useState<string | null>(null);
+    const over = spec.left < 0;
+    const whole = Math.max(spec.income, spec.income - spec.left, 1); // the bar is income, or spending if that is larger
+    const part = (value: number) => `${(Math.max(value, 0) / whole) * 100}%`;
+    const interactive = !!(onAsk || onExplore);
+
+    return (
+        <Figure
+            title={spec.title}
+            subtitle={
+                <>
+                    {spec.subtitle} <strong>{formatEur(spec.income)}</strong>
+                </>
+            }
+        >
+            <div className="viz-budget-bar" role="img" aria-label="Income split by cost type">
+                {spec.segments.map((s) => (
+                    <span key={s.key} className={`type-${s.key}`} style={{ width: part(s.value) }} />
+                ))}
+                {!over && <span className="type-left" style={{ width: part(spec.left) }} />}
+            </div>
+            <ul className="viz-budget">
+                {spec.segments.map((s) => {
+                    const head = (
+                        <div className="viz-row">
+                            <span className="viz-key">
+                                <i className={`viz-swatch type-${s.key}`} />
+                                {s.label}
+                            </span>
+                            <span className="viz-value">
+                                {formatEur(s.value)}
+                                <span className="viz-share">{s.share_pct ?? 0}&nbsp;%</span>
+                            </span>
+                        </div>
+                    );
+                    return (
+                        <li key={s.key} className={open === s.key ? "selected" : ""}>
+                            {interactive ? (
+                                <button
+                                    type="button"
+                                    className="viz-tap"
+                                    onClick={() => setOpen(open === s.key ? null : s.key)}
+                                    aria-expanded={open === s.key}
+                                >
+                                    {head}
+                                </button>
+                            ) : (
+                                head
+                            )}
+                            {open === s.key && (
+                                <div className="viz-focus">
+                                    <div className="viz-focus-head">
+                                        <span className="viz-hint">{s.description}</span>
+                                        <button
+                                            type="button"
+                                            className="viz-close"
+                                            onClick={() => setOpen(null)}
+                                            aria-label="Close"
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                    <ul className="viz-budget-items">
+                                        {s.items
+                                            .filter((i) => i.value > 0)
+                                            .map((i) => (
+                                                <li key={i.label}>
+                                                    <span>{i.label}</span>
+                                                    <span>
+                                                        <strong>{formatEur(i.value)}</strong> a month ·{" "}
+                                                        {formatEur(i.yearly)} a year
+                                                    </span>
+                                                </li>
+                                            ))}
+                                    </ul>
+                                    <div className="viz-focus-actions">
+                                        {onAsk && (
+                                            <button
+                                                type="button"
+                                                className="viz-action primary"
+                                                onClick={() => onAsk(`Tell me about my ${lower(s.label)}.`)}
+                                            >
+                                                <AskIcon />
+                                                Ask about this
+                                            </button>
+                                        )}
+                                        {onExplore && (
+                                            <button
+                                                type="button"
+                                                className="viz-action"
+                                                onClick={() =>
+                                                    onExplore({
+                                                        group_by: "category",
+                                                        categories: s.items.map((i) => i.label),
+                                                    })
+                                                }
+                                            >
+                                                <ExploreIcon />
+                                                See the categories
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </li>
+                    );
+                })}
+                <li className="viz-budget-left">
+                    <div className="viz-row">
+                        <span className="viz-key">
+                            <i className={`viz-swatch ${over ? "bad" : "type-left"}`} />
+                            {over ? "Spent beyond your income" : "Left over"}
+                        </span>
+                        <span className="viz-value">
+                            {formatEur(Math.abs(spec.left))}
+                            <span className="viz-share">{Math.abs(spec.left_share_pct ?? 0)}&nbsp;%</span>
+                        </span>
+                    </div>
+                    {!over && spec.invested > 0 && (
+                        <span className="viz-usual-text">
+                            Of this, about {formatEur(spec.invested)} a month goes to investments.
+                        </span>
+                    )}
+                </li>
+            </ul>
+            {interactive && !open && <p className="viz-hint">Tap a part to see what is in it.</p>}
+            <Footer
+                spec={spec}
+                onAsk={onAsk}
+                onExplore={onExplore}
+                hideExploreButton={hideExploreButton}
+                hideAskButton={hideAskButton}
+                question={question ?? "How is my spending split between needs and wants?"}
+            />
+        </Figure>
     );
 }
 

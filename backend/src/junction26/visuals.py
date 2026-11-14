@@ -14,7 +14,7 @@ built here from the data. The frontend draws each `type`:
 
 from __future__ import annotations
 
-from . import finance
+from . import costs, finance
 from .insights import SPENDING_CATEGORIES, get_comparison, get_profile
 from .suggestions import question_for
 
@@ -165,6 +165,23 @@ def calc(result: dict) -> dict:
     }
 
 
+def budget(customer_id: str, months: int = 12) -> dict:
+    """Where an average month's income goes, by cost type."""
+    plan = costs.budget(customer_id, months)
+    return {
+        "type": "budget",
+        "title": "Where your income goes",
+        "subtitle": "An average month, income",
+        "income": plan["income"],
+        "left": plan["left"],
+        "left_share_pct": plan["left_share_pct"],
+        "invested": plan["invested"],
+        "segments": plan["segments"],
+        "notes": [plan["basis"]],
+        "explore": {"group_by": "type", "months": months},
+    }
+
+
 def finland(customer_id: str, category: str | None = None) -> dict | None:
     """You vs the Finnish average for your age (Statistics Finland)."""
     from .explore import explore
@@ -211,6 +228,8 @@ def from_tag(customer_id: str, tag: str) -> dict | None:
                 return mortgage(customer_id)
             case "finland":
                 return finland(customer_id, arg)
+            case "budget":
+                return budget(customer_id)
     except (ValueError, KeyError):
         return None
     return None

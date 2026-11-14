@@ -11,6 +11,7 @@ import {
 } from "../api";
 import Visual from "../charts/Visual";
 import HouseholdCard from "../components/HouseholdCard";
+import ReflectCard from "../components/ReflectCard";
 import { describePeers, formatEur, formatEurCents } from "../format";
 
 type Props = {
@@ -116,6 +117,14 @@ export default function Home({ customerId, onAsk, onExplore, contextVersion, onC
                 )}
             </section>
 
+            <section>
+                <div className="card">
+                    <Visual spec={visuals.budget} onAsk={onAsk} onExplore={onExplore} />
+                </div>
+            </section>
+
+            <ReflectCard budget={visuals.budget} onAsk={onAsk} />
+
             <HouseholdCard customerId={customerId} onChange={onContextChange} />
 
             <section>
@@ -166,11 +175,6 @@ export default function Home({ customerId, onAsk, onExplore, contextVersion, onC
                 </p>
             </section>
 
-            <section>
-                <div className="card">
-                    <Visual spec={visuals.spending} onAsk={onAsk} onExplore={onExplore} />
-                </div>
-            </section>
 
             <section>
                 {visuals.mortgage ? (

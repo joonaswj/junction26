@@ -51,7 +51,8 @@ export type Insights = {
 
 // What the customer chose to look at in Explore (explore.py).
 export type Measure = "spending" | "income" | "saved" | "balance";
-export type GroupBy = "month" | "category" | "merchant" | "weekday";
+export type GroupBy = "category" | "type" | "month" | "merchant" | "weekday";
+export type CostType = "fixed" | "variable" | "free";
 export type CompareWith = "none" | "peers" | "finland";
 export type ExploreQuery = {
     measure?: Measure;
@@ -86,7 +87,18 @@ export type BarsVisual = VisualBase & {
     subtitle: string;
     total: number;
     show_share?: boolean;
-    items: { label: string; value: number }[];
+    /** Cost types the rows are grouped under, in order. */
+    groups?: { key: CostType; label: string; value: number }[];
+    items: {
+        label: string;
+        value: number;
+        group?: CostType;
+        /** The customer's usual month (12-month average), to read a heavy month against. */
+        usual?: number;
+        /** Cost-type rows: what the type means and which categories it holds. */
+        note?: string;
+        categories?: string[];
+    }[];
 };
 export type ColumnsVisual = VisualBase & {
     type: "columns";
@@ -96,6 +108,8 @@ export type ColumnsVisual = VisualBase & {
     labels: string[]; // months, "2026-04"
     series: { name: string; values: number[] }[];
     colors?: string[]; // one class per series: s1, s2, peer
+    /** A level to read the months against, e.g. the customer's usual month. */
+    reference?: { label: string; value: number };
 };
 export type LineVisual = VisualBase & {
     type: "line";
@@ -148,7 +162,25 @@ export type CalcVisual = VisualBase & {
     max_price_for_income: number;
     note: string;
 };
+export type BudgetVisual = VisualBase & {
+    type: "budget";
+    title: string;
+    subtitle: string;
+    income: number;
+    left: number;
+    left_share_pct: number | null;
+    invested: number;
+    segments: {
+        key: CostType;
+        label: string;
+        description: string;
+        value: number;
+        share_pct: number | null;
+        items: { label: string; value: number; yearly: number }[];
+    }[];
+};
 export type Visual =
+    | BudgetVisual
     | BarsVisual
     | ColumnsVisual
     | LineVisual
@@ -157,6 +189,7 @@ export type Visual =
     | CalcVisual;
 
 export type DashboardVisuals = {
+    budget: BudgetVisual;
     income_vs_spending: ColumnsVisual;
     spending: BarsVisual;
     peers: CompareVisual;
@@ -209,7 +242,8 @@ export type ExploreResult = {
 export type Household = {
     partner: boolean;
     children: number;
-    partner_share_pct: number;
+    partner_housing_pct: number;
+    partner_groceries_pct: number;
     description: string;
     consumption_units: number;
 };
@@ -217,8 +251,13 @@ export type HouseholdInfo = {
     household: Household | null;
     shared_categories: string[];
     max_partner_share_pct: number;
+    /** What this account pays in a usual month, per shared category. */
+    my_monthly_eur: Record<string, number>;
 };
-export type HouseholdInput = Pick<Household, "partner" | "children" | "partner_share_pct">;
+export type HouseholdInput = Pick<
+    Household,
+    "partner" | "children" | "partner_housing_pct" | "partner_groceries_pct"
+>;
 
 async function send<T>(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
     const response = await fetch(`${API_URL}${path}`, {

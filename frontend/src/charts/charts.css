@@ -5,6 +5,7 @@
 .viz {
     --s1: var(--brand);
     --s2: #2a78d6;
+    --s3: #eb6834;
     --peer: #a3aba6;
     --track: #edf1ee;
     --grid: #dde3de;
@@ -630,4 +631,161 @@ li > .viz-focus {
     color: var(--muted);
     font-size: 0.9rem;
     text-align: center;
+}
+
+/* Cost types: fixed (green), varies (blue), free choice (orange), left over
+   (grey). Green-blue and blue-orange are the adjacent pairs, both validated. */
+.viz .type-fixed {
+    background: var(--s1);
+}
+
+.viz .type-variable {
+    background: var(--s2);
+}
+
+.viz .type-free {
+    background: var(--s3);
+}
+
+.viz .type-left {
+    background: var(--peer);
+}
+
+.viz-budget-bar {
+    display: flex;
+    gap: 2px; /* surface gap between segments */
+    height: 20px;
+}
+
+.viz-budget-bar span {
+    min-width: 3px;
+}
+
+.viz-budget-bar span:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.viz-budget-bar span:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.viz-budget,
+.viz-budget-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.viz-budget .viz-row {
+    margin: 0;
+    align-items: center;
+}
+
+.viz-budget-left {
+    padding-top: 8px;
+    border-top: 1px solid var(--grid);
+}
+
+.viz-budget-items {
+    gap: 6px;
+    font-size: 0.85rem;
+}
+
+.viz-budget-items li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--muted);
+}
+
+.viz-budget-items li > span:first-child,
+.viz-budget-items strong {
+    color: var(--text);
+}
+
+/* Bars grouped by cost type */
+.viz-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.viz-group-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--grid);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+}
+
+.viz-group-head > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* The customer's usual month, to read a heavy month against */
+.viz-track {
+    position: relative;
+}
+
+.viz-usual {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--text);
+}
+
+.viz-usual-text {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.78rem;
+    color: var(--muted);
+}
+
+.viz-usual-key {
+    display: inline-block;
+    width: 2px;
+    height: 12px;
+    margin-right: 6px;
+    vertical-align: -1px;
+    background: var(--text);
+}
+
+/* Reference level across a month chart */
+.viz-columns {
+    position: relative;
+}
+
+.viz-reference {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--text);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.viz-reference span {
+    position: absolute;
+    right: 0;
+    bottom: 2px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: var(--surface);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
 }

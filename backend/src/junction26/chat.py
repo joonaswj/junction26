@@ -24,7 +24,7 @@ from typing import Any
 
 import openai
 
-from . import finance, guardrails, household, opendata, visuals
+from . import costs, finance, guardrails, household, opendata, visuals
 from .featherless import get_llm
 
 MAX_TOOL_ROUNDS = 6
@@ -78,7 +78,16 @@ as a share of the home's value). End with one practical tip when it fits.
 - Mortgage answers are estimates for learning, not a loan offer or a \
 decision: say so in a few words, and suggest talking to an S-Pankki advisor \
 for a real application.
-- Don't recommend specific investment products.
+- Investing: you may explain the general basics and the customer's own \
+figures from get_investing_overview. Never name or recommend specific \
+products, funds, stocks or crypto, and never predict returns. Say it is \
+general information, not investment advice, and point to an S-Pankki \
+advisor for personal advice.
+- Cost types: fixed essentials (housing), essentials that vary (groceries, \
+utilities, health, transportation) and free-choice spending (restaurants, \
+entertainment, lifestyle, travel, home & tech). Judge essentials that vary \
+by the 12-month average: one heavy month of those is normal, not a problem. \
+When someone wants to cut back, look at free-choice spending first.
 
 Charts:
 - When a picture helps understanding, end your answer with ONE tag on its \
@@ -90,6 +99,7 @@ own line. The app draws the chart from the customer's real data:
   [[chart:peers]]                you vs similar customers, biggest differences
   [[chart:peers:Groceries]]      you vs similar customers in one category
   [[chart:mortgage]]             the customer's own mortgage application
+  [[chart:budget]]               where the income goes: fixed, varies, free choice, left over
   [[chart:finland]]              you vs the Finnish average for your age
   [[chart:finland:Groceries]]    the same for one category
 - explore_data shows its own chart automatically, add no tag for it.
@@ -214,6 +224,14 @@ TOOLS = [
         {},
     ),
     _tool(
+        "get_investing_overview",
+        "The customer's own saving and investing: how much they invested in the last "
+        "12 months, what is left on the account each month, how many months of spending "
+        "the balance covers, plus general basics of investing. Use for any question "
+        "about investing or what to do with savings.",
+        {},
+    ),
+    _tool(
         "mortgage_calculator",
         "What-if estimate for buying a home: loan, loan-to-value against the 90% "
         "cap, monthly payment, stress-tested payment, required income vs the "
@@ -243,6 +261,7 @@ def _explore_data(customer_id: str, **kwargs) -> dict:
 
 _FUNCTIONS: dict[str, Callable[..., dict]] = {
     "explore_data": _explore_data,
+    "get_investing_overview": finance.get_investing_summary,
     "get_overview": finance.get_overview,
     "get_spending": finance.get_spending,
     "get_monthly_trend": finance.get_monthly_trend,
@@ -262,6 +281,7 @@ TOOL_LABELS = {
     "get_mortgage_status": "Checking your mortgage application",
     "mortgage_calculator": "Calculating a home loan estimate",
     "explore_data": "Exploring your data",
+    "get_investing_overview": "Looking at your saving and investing",
 }
 
 # What a tool call or chart is about, for choosing follow-up suggestions.
@@ -274,6 +294,8 @@ _TOPICS = {
     "get_mortgage_status": "mortgage",
     "mortgage_calculator": "mortgage",
     "explore_data": "spending",
+    "get_investing_overview": "investing",
+    "budget": "spending",
     "bars": "spending",
     "columns": "trend",
     "line": "trend",
@@ -314,6 +336,7 @@ def _snapshot(customer_id: str) -> dict:
     overview = finance.get_overview(customer_id)
     insights = finance.get_insights(customer_id, limit=5)
     mortgage = finance.get_mortgage_details(customer_id)
+    investing = finance.get_investing_summary(customer_id)
     home = household.get(customer_id)
     national = opendata.national_spending(
         overview["age"], (home.partner, home.children) if home else None
@@ -321,7 +344,20 @@ def _snapshot(customer_id: str) -> dict:
     from .explore import explore
 
     finland = explore(customer_id, group_by="category", months=12, compare="finland")
+    plan = costs.budget(customer_id, 12)  # same basis as the overview screen
     snap: dict[str, Any] = {
+        "average_month_by_cost_type_eur": {
+            "income": plan["income"],
+            **{s["label"]: {"total": s["value"], **{i["label"]: i["value"] for i in s["items"]}}
+               for s in plan["segments"]},
+            "left_over": plan["left"],
+            "basis": plan["basis"],
+        },
+        "saving_and_investing": {
+            k: investing[k]
+            for k in ("invests_from_this_account", "avg_monthly_invested_eur",
+                      "avg_monthly_left_on_account_eur", "balance_covers_months_of_spending")
+        },
         "household_told_by_customer": (
             {
                 **household.as_dict(home),

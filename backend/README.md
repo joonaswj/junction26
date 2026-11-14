@@ -616,19 +616,41 @@ Suggestions are tailored to the customer's profile: savings rate, biggest differ
 
 Every chart is a starting point (`frontend/src/charts/Visual.tsx`): tapping a bar, a month or a comparison row offers "Ask about this" (sends a question about that exact element to the assistant) and a drill-down in Explore ("See month by month", "Look inside Jul", "See the merchants"). Charts in chat answers have an "Explore" button that opens the same view in the Explore tab.
 
+### Cost types (`junction26/costs.py`)
+
+Every spending category has a cost type:
+
+| Type | Categories | How a "per month" figure is calculated |
+|---|---|---|
+| Fixed essentials | Housing | Average of the selected period |
+| Essentials that vary | Groceries, Utilities, Health, Transportation | Always the customer's **12-month average** |
+| Free-choice spending | Restaurants, Entertainment, Lifestyle, Travel, Home & Tech | Average of the selected period |
+
+In the data, housing varies about 3 % from month to month, groceries about 80 % and health about 160 %, so one month of an essential that varies says little. Wherever such a cost is shown per month or compared with others, the 12-month average is used whatever period is selected, and similar customers are measured the same way. Looking inside a single month shows the real amounts, each next to the customer's usual month ("Groceries 1 224 €, usually 399 €").
+
+`costs.budget()` gives the income split (fixed, varies, free choice, left over, of which invested). The overview draws it as the `budget` chart, Explore can slice by `group_by=type`, and category views are grouped by cost type. Month charts carry a `reference` line at the customer's usual month.
+
+### Reflection (frontend `components/ReflectCard.tsx`)
+
+The overview has "A moment to reflect": free-choice spending as a yearly amount, the three biggest free-choice categories per year, a "what if you trimmed it by X %" slider, and the question "Does this feel right for you?". "I'd change it" hands the chosen cut to the assistant.
+
+### Investing
+
+The assistant can talk about the customer's own saving and investing (`finance.get_investing_summary`: invested in the last 12 months, what is left each month, how many months of spending the balance covers) and the general basics of investing. It never names or recommends products, funds, stocks or crypto and never predicts returns; those questions are redirected. Investing questions are only suggested when relevant: the customer already invests, or has money left each month and a balance that covers at least six months of spending.
+
 ### Household details (`junction26/household.py`)
 
-A bank account shows one person's payments, not a household's life: someone whose partner buys the groceries looks like they barely eat. So the customer can optionally say whether they live with a partner, how many children are at home, and (with a slider) roughly how much of the shared costs the partner pays. It is self-reported, never required, editable and deletable, and stored in `backend/data/household.json` (not in git).
+A bank account shows one person's payments, not a household's life: someone whose partner buys the groceries looks like they barely eat. So the customer can optionally say whether they live with a partner, how many children are at home, and with two sliders roughly how much of the **housing** and of the **groceries** the partner pays (couples often split these differently). Only those two count as shared. The form shows what each slider position means in euros for the whole household. It is self-reported, never required, editable and deletable, and stored in `backend/data/household.json` (not in git).
 
 | Endpoint | Does |
 |---|---|
-| `GET /customers/{customer_id}/household` | The details, or `null` |
-| `PUT /customers/{customer_id}/household` | Save `{"partner": true, "children": 2, "partner_share_pct": 70}` |
+| `GET /customers/{customer_id}/household` | The details (or `null`) and what this account pays for housing and groceries in a usual month |
+| `PUT /customers/{customer_id}/household` | Save `{"partner": true, "children": 2, "partner_housing_pct": 50, "partner_groceries_pct": 80}` |
 | `DELETE /customers/{customer_id}/household` | Remove them |
 
 What it changes:
 
 - **The Finnish benchmark** becomes "households like yours" (Statistics Finland table 14ph: people living alone, couples without children, single-parent households, two-parent families with children, over-64 households) instead of "people your age".
-- **Shared costs** (groceries, housing, utilities, home & tech) are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Personal costs are left as they are.
-- **Insights** that the household explains get an `expected_because` note ("Your partner pays about 70 % of your shared costs, so this account shows only part of your household's groceries") and are shown after the others.
+- **Groceries** are scaled up to the whole household using the partner's share, then divided by household size in consumption units (first adult 1, second adult 0.5, each child 0.3, the scale Statistics Finland uses). Both sides of the comparison are then per person. Housing is not compared with the Finnish average at all (see above), but its share is used to explain insights.
+- **Insights** that the household explains get an `expected_because` note ("Your partner pays about 80 % of your groceries, so this account shows only part of what your household spends on it") and are shown after the others.
 - **The assistant and the suggested questions** know the details. Without them, a comparison that would benefit shows an invitation to add them.

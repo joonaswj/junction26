@@ -1058,3 +1058,99 @@ input:focus-visible {
     font-weight: 800;
     font-family: Georgia, serif;
 }
+
+/* Household sliders */
+.slider-preview {
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.slider-preview strong {
+    color: var(--text);
+}
+
+/* Reflection */
+.reflect {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: #eaf2fb;
+    box-shadow: none;
+}
+
+.reflect-kicker {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #1d5cab;
+}
+
+.reflect-lead {
+    font-size: 1.05rem;
+    line-height: 1.4;
+}
+
+.reflect-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.9rem;
+}
+
+.reflect-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.reflect-whatif {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.reflect-whatif label {
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.reflect-whatif input[type="range"] {
+    width: 100%;
+    height: 44px;
+    margin: 0;
+    accent-color: var(--brand);
+}
+
+.reflect-whatif p {
+    font-size: 0.9rem;
+}
+
+.reflect-question {
+    font-weight: 700;
+}
+
+.reflect .button-row {
+    margin-top: 0;
+}
+
+.reflect .btn-primary {
+    flex: 1;
+    padding: 12px;
+}
+
+.reflect-ack {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 0.92rem;
+}
