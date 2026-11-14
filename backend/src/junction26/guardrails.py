@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from . import finance
+from . import suggestions
 
 MAX_MESSAGE_CHARS = 600
 MAX_HISTORY_MESSAGES = 20
@@ -64,11 +64,6 @@ _OTHER_PEOPLE = re.compile(
     re.IGNORECASE,
 )
 _CUSTOMER_ID = re.compile(r"\bCUST\d{3,}\b", re.IGNORECASE)
-_FINNISH = re.compile(
-    r"[äöÄÖ]|\b(mitä|miten|paljonko|kuinka|minun|rahaa|olen|onko|voinko|kerro|asuntolaina)\b",
-    re.IGNORECASE,
-)
-
 _MESSAGES = {
     "off_topic": {
         "en": "I'm your money assistant, so here I can only help with your own finances: "
@@ -100,7 +95,7 @@ _MESSAGES = {
 
 
 def _lang(text: str) -> str:
-    return "fi" if _FINNISH.search(text) else "en"
+    return suggestions.lang_of(text)
 
 
 def screen(customer_id: str, text: str) -> str | None:
@@ -136,111 +131,11 @@ def language_rule(user_text: str) -> str:
 
 
 # --- Suggested questions -----------------------------------------------------
-# Every suggestion is something the assistant can answer from the data.
-
-_FI = {
-    "Where does my money go?": "Mihin rahani menevät?",
-    "How much do I save each month?": "Paljonko säästän kuukaudessa?",
-    "How do I compare with similar customers?": "Miten vertaudun samankaltaisiin asiakkaisiin?",
-    "What were my biggest purchases last month?": "Mitkä olivat suurimmat ostokseni viime kuussa?",
-    "Where could I save the most?": "Mistä voisin säästää eniten?",
-    "How has my income and spending changed?": "Miten tuloni ja menoni ovat muuttuneet?",
-    "Is my balance growing?": "Kasvaako saldoni?",
-    "Could I afford a 250 000 € home?": "Olisiko minulla varaa 250 000 €:n asuntoon?",
-    "How much down payment would I need for a 250 000 € home?":
-        "Paljonko omaa rahaa tarvitsisin 250 000 €:n asuntoon?",
-    "How big a home loan could my income support?": "Kuinka suuren asuntolainan tuloni kestävät?",
-    "Why was my mortgage application rejected?": "Miksi asuntolainahakemukseni hylättiin?",
-    "What could improve my chances next time?": "Mikä parantaisi mahdollisuuksiani ensi kerralla?",
-    "What does loan-to-value mean in my application?":
-        "Mitä luototusaste tarkoittaa hakemuksessani?",
-    "What did my approved mortgage look like?": "Miltä hyväksytty asuntolainani näytti?",
-    "What would my monthly loan payment be?": "Mikä olisi lainani kuukausierä?",
-}
-_FI_CATEGORIES = {
-    "groceries": "ruokaostoksiin", "restaurants": "ravintoloihin",
-    "transportation": "liikkumiseen", "entertainment": "viihteeseen", "health": "terveyteen",
-    "home & tech": "kotiin ja tekniikkaan", "lifestyle": "elämäntyyliin",
-    "travel": "matkailuun", "housing": "asumiseen", "utilities": "sähköön ja veteen",
-}
+# Tailored to the customer's profile, see suggestions.py.
 
 
-def _translate(question: str, lang: str) -> str:
-    if lang != "fi":
-        return question
-    if question in _FI:
-        return _FI[question]
-    m = re.fullmatch(r"Why do I spend (more|less) on (.+) than others\?", question)
-    if m and m.group(2) in _FI_CATEGORIES:
-        word = "enemmän" if m.group(1) == "more" else "vähemmän"
-        return f"Miksi käytän {_FI_CATEGORIES[m.group(2)]} {word} kuin muut?"
-    return question
-
-
-def _mortgage_questions(customer_id: str, tools_used: list[str] | None = None) -> list[str]:
-    """Mortgage questions for this customer, minus what a tool just answered."""
-    tools_used = tools_used or []
-    status = finance.get_mortgage_status(customer_id)
-    if not status["has_mortgage_application"]:
-        questions = [
-            "Could I afford a 250 000 € home?",
-            "How much down payment would I need for a 250 000 € home?",
-            "How big a home loan could my income support?",
-        ]
-        return questions[1:] if "mortgage_calculator" in tools_used else questions
-    if status["final_decision"] == "rejected":
-        questions = [
-            "Why was my mortgage application rejected?",
-            "What could improve my chances next time?",
-            "What does loan-to-value mean in my application?",
-        ]
-    else:
-        questions = [
-            "What did my approved mortgage look like?",
-            "What does loan-to-value mean in my application?",
-            "What would my monthly loan payment be?",
-        ]
-    return questions[1:] if "get_mortgage_status" in tools_used else questions
-
-
-def _peer_question(customer_id: str) -> str:
-    insights = finance.get_insights(customer_id, limit=1)["insights"]
-    if not insights:
-        return "How do I compare with similar customers?"
-    top = insights[0]
-    return f"Why do I spend {top['direction']} on {top['category'].lower()} than others?"
-
-
-def _starters(customer_id: str) -> list[str]:
-    return [
-        "Where does my money go?",
-        _peer_question(customer_id),
-        _mortgage_questions(customer_id)[0],
-        "How much do I save each month?",
-    ]
-
-
-def starters(customer_id: str, lang: str = "en") -> list[str]:
-    """Opening suggestions, personalised to the customer."""
-    return [_translate(q, lang) for q in _starters(customer_id)]
-
-
-_BY_TOPIC = {
-    "spending": [
-        "How do I compare with similar customers?",
-        "What were my biggest purchases last month?",
-        "How much do I save each month?",
-    ],
-    "peers": [
-        "Where could I save the most?",
-        "How has my income and spending changed?",
-    ],
-    "trend": [
-        "Where does my money go?",
-        "Is my balance growing?",
-        "How do I compare with similar customers?",
-    ],
-}
+def starters(customer_id: str, lang: str = "en") -> list[dict]:
+    return suggestions.starters(customer_id, lang)
 
 
 def follow_ups(
@@ -250,33 +145,4 @@ def follow_ups(
     tools_used: list[str] | None = None,
     user_text: str = "",
 ) -> list[str]:
-    """Up to three next questions that fit what was just discussed.
-
-    Always includes one mortgage question, never repeats what was already
-    asked, and is in Finnish when the customer writes Finnish.
-    """
-    lang = _lang(user_text)
-    asked_set = {a.strip().lower() for a in asked}
-
-    def is_new(q: str) -> bool:
-        return q.lower() not in asked_set and _translate(q, "fi").lower() not in asked_set
-
-    mortgage = [q for q in _mortgage_questions(customer_id, tools_used) if is_new(q)]
-    pool: list[str] = []
-    if "mortgage" in topics:
-        pool += mortgage[:2] + ["How much do I save each month?", "Where does my money go?"]
-    else:
-        for topic in topics:
-            pool += _BY_TOPIC.get(topic, [])
-        if "peers" in topics:
-            pool.insert(0, _peer_question(customer_id))
-        pool += _starters(customer_id)
-
-    picked: list[str] = []
-    for q in pool:
-        if is_new(q) and q not in picked:
-            picked.append(q)
-    picked = picked[:3]
-    if mortgage and not any(q in mortgage for q in picked):
-        picked = picked[:2] + [mortgage[0]]
-    return [_translate(q, lang) for q in picked]
+    return suggestions.follow_ups(customer_id, topics, asked, tools_used, user_text)

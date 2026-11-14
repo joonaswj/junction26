@@ -578,3 +578,40 @@ The model never writes numbers into charts. It asks for one with a tag (`[[chart
 
 - `get_mortgage_details`: the customer's application, the rejection reason explained in plain words with what could help, and how all applicants in the data did.
 - `mortgage_calculator`: what-if estimate (loan, loan-to-value against the 90% cap, monthly payment, payment at a 6% stress rate, required income, whether savings cover the down payment). The rates and caps are teaching defaults, not S-Pankki's credit policy. The required income uses the ratio found in the dataset (1.84% of the loan per month).
+
+## Explore: your data, your questions (`junction26/explore.py`)
+
+In the spirit of MyData, the customer explores their own data freely instead of only seeing charts the bank picked. One endpoint answers any combination:
+
+`GET /customers/{customer_id}/explore?measure=&group_by=&months=&categories=&compare=&month=`
+
+| Parameter | Values |
+|---|---|
+| `measure` | `spending` (default), `income`, `saved`, `balance` |
+| `group_by` | `category`, `month`, `merchant`, `weekday` (spending only) |
+| `months` | 1–24, how far back |
+| `categories` | comma-separated spending categories, default all |
+| `compare` | `none`, `peers` (similar customers), `finland` (Statistics Finland) |
+| `month` | `YYYY-MM`: look inside one month |
+
+It returns a chart spec (`visual`), the same numbers as a `table`, a one-sentence `summary`, `notes` and `source` for any benchmark, and `questions` to hand over to the assistant about exactly this view. The assistant has the same power through its `explore_data` tool.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /customers/{customer_id}/explore/transactions?months=&categories=&month=&limit=&offset=` | The raw transactions behind a view |
+| `GET /customers/{customer_id}/export?format=csv\|json` | Download all your transactions (data portability) |
+| `GET /customers/{customer_id}/my-data` | What data is held and how it is used (transparency) |
+
+### Open data: Statistics Finland (`junction26/opendata.py`)
+
+The "Finnish average" benchmark is real open data: Statistics Finland's Household Budget Survey 2022, table 14q4 "Household consumption expenditure by age of reference person", consumption per consumption unit in EUR per month (CC BY 4.0). The figures are saved in `opendata_statfi.json`. Refresh them from the API with `uv run python -m junction26.opendata`.
+
+Statistics Finland's categories (COICOP) are matched to the bank's approximately, see `CATEGORY_MAP`. Housing is deliberately not compared: the statistics leave out loan repayments, so the national figure says little about a customer's housing payments. The app shows the source and these caveats under every chart that uses the benchmark.
+
+### Suggested questions (`junction26/suggestions.py`)
+
+Suggestions are tailored to the customer's profile: savings rate, biggest differences to similar customers and to the Finnish average, balance trend, unusual months, housing share of income, mortgage status and age. Each starter comes with a `why` ("You spend 130 € more a month than similar customers"), so the customer can see why it was suggested. Home price examples are sized to the customer's income. Follow-ups after an answer move to related topics, never repeat a question, and always include one about a home or mortgage.
+
+### From charts to chat and back (frontend)
+
+Every chart is a starting point (`frontend/src/charts/Visual.tsx`): tapping a bar, a month or a comparison row offers "Ask about this" (sends a question about that exact element to the assistant) and a drill-down in Explore ("See month by month", "Look inside Jul", "See the merchants"). Charts in chat answers have an "Explore" button that opens the same view in the Explore tab.

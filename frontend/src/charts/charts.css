@@ -165,8 +165,9 @@
 
 .viz-plot {
     flex: 1;
+    position: relative;
     display: flex;
-    align-items: flex-end;
+    align-items: stretch;
     justify-content: center;
     gap: 2px;
     padding: 0 2px;
@@ -177,15 +178,35 @@
     background: var(--track);
 }
 
-.viz-column {
+.viz-slot {
     flex: 1;
     max-width: 16px;
+    position: relative;
+}
+
+.viz-column {
+    position: absolute;
+    left: 0;
+    right: 0;
     border-radius: 4px 4px 0 0;
     opacity: 0.55;
 }
 
+.viz-column.negative {
+    border-radius: 0 0 4px 4px;
+}
+
 .viz-month.selected .viz-column {
     opacity: 1;
+}
+
+/* Zero line when some months are negative. */
+.viz-zero {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--muted);
 }
 
 .viz-tick {
@@ -204,7 +225,7 @@
     font-weight: 700;
 }
 
-.viz-columns + .viz-hint {
+.after-ticks {
     margin-top: 14px; /* room for the month labels under the baseline */
 }
 
@@ -478,4 +499,135 @@
 
 .viz-checks strong {
     color: var(--text);
+}
+
+/* Tappable rows */
+.viz-tap {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    margin: -6px -8px;
+    box-sizing: content-box;
+    border: none;
+    border-radius: 10px;
+    background: none;
+    text-align: left;
+}
+
+.viz-tap:hover,
+li.selected > .viz-tap {
+    background: var(--bg);
+}
+
+li.selected > .viz-tap {
+    box-shadow: inset 0 0 0 1.5px var(--brand);
+}
+
+/* What was tapped + what to do next */
+li > .viz-focus {
+    margin-top: 10px;
+}
+
+.viz-focus {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px 12px;
+    border-radius: 12px;
+    background: var(--brand-soft);
+}
+
+.viz-focus-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.viz-close {
+    width: 32px;
+    height: 32px;
+    margin: -6px -8px -6px 0;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: var(--muted);
+}
+
+.viz-focus-actions,
+.viz-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.viz-actions {
+    padding-top: 12px;
+    border-top: 1px solid var(--grid);
+}
+
+.viz-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 8px 14px;
+    border: 1.5px solid var(--brand);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--brand);
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.viz-action.primary {
+    background: var(--brand);
+    color: var(--brand-text);
+}
+
+.viz-action:hover {
+    filter: brightness(0.95);
+}
+
+/* Small print: where benchmarks come from */
+.viz-notes {
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.viz-notes-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-decoration: underline;
+}
+
+.viz-notes ul {
+    margin: 4px 0 0;
+    padding-left: 1.1em;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.viz-notes a {
+    color: var(--brand);
+}
+
+.viz-empty {
+    margin: 0;
+    padding: 16px;
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
 }

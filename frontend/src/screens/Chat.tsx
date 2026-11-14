@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { getChatStarters, streamChat, type ChatMessage } from "../api";
+import {
+    getChatStarters,
+    streamChat,
+    type ChatMessage,
+    type ExploreQuery,
+    type Starter,
+} from "../api";
 import Visual from "../charts/Visual";
 
-const FALLBACK_STARTERS = [
-    "Where does my money go?",
-    "How do I compare with similar customers?",
-    "Could I afford a 250 000 € home?",
+const FALLBACK_STARTERS: Starter[] = [
+    { text: "Where does my money go?", why: "", topic: "spending" },
+    { text: "How do I compare with similar customers?", why: "", topic: "peers" },
+    { text: "How big a home loan could my income support?", why: "", topic: "mortgage" },
 ];
 
 const TOPICS = [
     "Your spending, income and savings",
-    "How you compare with similar customers",
+    "How you compare with similar customers and the Finnish average",
     "Home loans and your mortgage application",
 ];
 
@@ -20,11 +26,13 @@ type Props = {
     customerId: string;
     /** A question sent from another screen ("Ask about this"). */
     pending: PendingQuestion | null;
+    /** Open a chart from an answer in Explore. */
+    onExplore: (query: ExploreQuery) => void;
 };
 
 type Streaming = { text: string; status: string };
 
-export default function Chat({ customerId, pending }: Props) {
+export default function Chat({ customerId, pending, onExplore }: Props) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [streaming, setStreaming] = useState<Streaming | null>(null);
@@ -151,8 +159,15 @@ export default function Chat({ customerId, pending }: Props) {
                                 </li>
                             ))}
                         </ul>
-                        <p className="chips-label">Try asking</p>
-                        <Chips items={starters} onPick={send} />
+                        <p className="chips-label">Picked for you</p>
+                        <div className="suggestions">
+                            {starters.map((s) => (
+                                <button key={s.text} className="suggestion starter" onClick={() => send(s.text)}>
+                                    <span>{s.text}</span>
+                                    {s.why && <span className="starter-why">{s.why}</span>}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 
@@ -182,7 +197,12 @@ export default function Chat({ customerId, pending }: Props) {
                             )}
                             {m.visuals?.map((v, vi) => (
                                 <div key={vi} className="card chat-visual">
-                                    <Visual spec={v} />
+                                    <Visual
+                                        spec={v}
+                                        onAsk={waiting ? undefined : send}
+                                        onExplore={onExplore}
+                                        hideAskButton
+                                    />
                                 </div>
                             ))}
                             {i === lastIndex && !waiting && !!m.suggestions?.length && (

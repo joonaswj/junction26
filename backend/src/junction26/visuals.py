@@ -33,6 +33,7 @@ def spending(customer_id: str, months: int = 3) -> dict:
         "subtitle": f"Last {data['months']} months, total",
         "total": data["total_eur"],
         "items": [{"label": k, "value": v} for k, v in data["by_category_eur"].items()],
+        "explore": {"group_by": "category", "months": data["months"]},
     }
 
 
@@ -49,6 +50,8 @@ def category_trend(customer_id: str, category: str, months: int = 12) -> dict:
         "total": round(sum(values) / len(values), 2) if values else 0,
         "labels": labels,
         "series": [{"name": data["category"], "values": values}],
+        "explore": {"group_by": "month", "months": len(labels),
+                    "categories": [data["category"]]},
     }
 
 
@@ -63,6 +66,7 @@ def income_vs_spending(customer_id: str, months: int = 6) -> dict:
             {"name": "Income", "values": [m["income"] for m in trend]},
             {"name": "Spending", "values": [m["spending"] for m in trend]},
         ],
+        "explore": {"measure": "saved", "months": len(trend)},
     }
 
 
@@ -74,6 +78,7 @@ def balance(customer_id: str, months: int = 12) -> dict:
         "subtitle": f"End of each month, last {len(trend)} months",
         "labels": [m["month"] for m in trend],
         "values": [m["end_balance"] for m in trend],
+        "explore": {"measure": "balance", "months": len(trend)},
     }
 
 
@@ -87,6 +92,8 @@ def peers(customer_id: str, category: str | None = None) -> dict:
         f"{profile['peer_count']} {_peer_text(profile['peer_group'])}.",
         "you_label": "You",
         "peer_label": "Typical similar customer",
+        "explore": {"group_by": "category", "months": 12, "compare": "peers",
+                    **({"categories": [finance._match_category(category)]} if category else {})},
     }
     if category:
         cat = finance._match_category(category)
@@ -151,6 +158,28 @@ def calc(result: dict) -> dict:
     }
 
 
+def finland(customer_id: str, category: str | None = None) -> dict | None:
+    """You vs the Finnish average for your age (Statistics Finland)."""
+    from .explore import explore
+
+    cats = [category] if category else None
+    result = explore(customer_id, group_by="category", months=12, categories=cats,
+                     compare="finland")
+    if not result["visual"]["items"]:
+        return None
+    return from_explore(result)
+
+
+def from_explore(result: dict) -> dict:
+    """The chart of an explore() result, with a link back to the same view."""
+    q = result["query"]
+    link = {k: v for k, v in q.items() if k != "categories"}
+    if len(q["categories"]) < len(result["options"]["categories"]):
+        link["categories"] = q["categories"]
+    return {**result["visual"], "explore": link, "notes": result["notes"],
+            "source": result["source"]}
+
+
 def from_tag(customer_id: str, tag: str) -> dict | None:
     """Build a chart from a tag body like 'spending' or 'category:Groceries'.
 
@@ -173,6 +202,8 @@ def from_tag(customer_id: str, tag: str) -> dict | None:
                 return peers(customer_id, arg)
             case "mortgage":
                 return mortgage(customer_id)
+            case "finland":
+                return finland(customer_id, arg)
     except (ValueError, KeyError):
         return None
     return None
@@ -196,6 +227,8 @@ def from_tool(customer_id: str, name: str, args: dict, result: dict) -> dict | N
                 return mortgage(customer_id)
             case "mortgage_calculator":
                 return calc(result)
+            case "explore_data":
+                return from_explore(result) if result.get("visual") else None
     except (ValueError, KeyError, TypeError):
         return None
     return None

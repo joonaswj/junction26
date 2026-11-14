@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+    type ExploreQuery,
     getDashboardVisuals,
     getInsights,
     getOverview,
@@ -15,13 +16,15 @@ type Props = {
     customerId: string;
     /** Open the assistant with this question. */
     onAsk: (question: string) => void;
+    /** Open a view in Explore. */
+    onExplore: (query: ExploreQuery) => void;
 };
 
 type Data = { overview: Overview; insights: Insights; visuals: DashboardVisuals };
 
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("fi-FI");
 
-export default function Home({ customerId, onAsk }: Props) {
+export default function Home({ customerId, onAsk, onExplore }: Props) {
     const [data, setData] = useState<Data | null>(null);
     const [error, setError] = useState(false);
     const [attempt, setAttempt] = useState(0);
@@ -125,17 +128,31 @@ export default function Home({ customerId, onAsk }: Props) {
                         ))}
                     </div>
                 )}
-                <button
-                    className="btn-secondary"
-                    onClick={() => onAsk("How do I compare with similar customers?")}
-                >
-                    See the full comparison
-                </button>
+                <div className="button-row">
+                    <button
+                        className="btn-secondary"
+                        onClick={() => onExplore({ group_by: "category", months: 12, compare: "peers" })}
+                    >
+                        Similar customers
+                    </button>
+                    <button
+                        className="btn-secondary"
+                        onClick={() => onExplore({ group_by: "category", months: 12, compare: "finland" })}
+                    >
+                        Finnish average
+                    </button>
+                </div>
+                <p className="explain">Open the full comparison, category by category.</p>
             </section>
 
             <section>
                 <div className="card">
-                    <Visual spec={visuals.income_vs_spending} />
+                    <Visual
+                        spec={visuals.income_vs_spending}
+                        onAsk={onAsk}
+                        onExplore={onExplore}
+                        question="How has my income and spending changed?"
+                    />
                 </div>
                 <p className="explain">
                     When the green column is taller than the blue one, you earned more than you
@@ -145,31 +162,16 @@ export default function Home({ customerId, onAsk }: Props) {
 
             <section>
                 <div className="card">
-                    <Visual spec={visuals.spending} />
+                    <Visual spec={visuals.spending} onAsk={onAsk} onExplore={onExplore} />
                 </div>
-                <button className="btn-secondary" onClick={() => onAsk("Where could I save the most?")}>
-                    Ask where you could save
-                </button>
             </section>
 
             <section>
                 {visuals.mortgage ? (
                     <>
                         <div className="card">
-                            <Visual spec={visuals.mortgage} />
+                            <Visual spec={visuals.mortgage} onAsk={onAsk} />
                         </div>
-                        <button
-                            className="btn-secondary"
-                            onClick={() =>
-                                onAsk(
-                                    visuals.mortgage?.decision === "rejected"
-                                        ? "What could improve my chances next time?"
-                                        : "What would my monthly loan payment be?",
-                                )
-                            }
-                        >
-                            Ask about your application
-                        </button>
                     </>
                 ) : (
                     <div className="card teaser">
@@ -180,7 +182,7 @@ export default function Home({ customerId, onAsk }: Props) {
                         </p>
                         <button
                             className="btn-primary"
-                            onClick={() => onAsk("Could I afford a 250 000 € home?")}
+                            onClick={() => onAsk("How big a home loan could my income support?")}
                         >
                             Try a home loan estimate
                         </button>

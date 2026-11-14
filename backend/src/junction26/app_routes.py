@@ -6,11 +6,14 @@ import json
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import chat as chatbot
-from . import finance, guardrails, visuals
+from . import explore as explorer
+from . import finance, guardrails, opendata, visuals
+from .data import load_transactions
+from .insights import SPENDING_CATEGORIES
 
 router = APIRouter()
 
@@ -67,6 +70,89 @@ def dashboard_visuals(customer_id: str):
         "spending": visuals.spending(customer_id, 3),
         "peers": visuals.peers(customer_id),
         "mortgage": visuals.mortgage(customer_id),
+    }
+
+
+def _split(categories: str | None) -> list[str] | None:
+    return [c.strip() for c in categories.split(",") if c.strip()] if categories else None
+
+
+@router.get("/customers/{customer_id}/explore", tags=["explore"])
+def explore_data(
+    customer_id: str,
+    measure: str = "spending",
+    group_by: str = "category",
+    months: int = Query(3, ge=1, le=24),
+    categories: str | None = Query(None, description="Comma-separated, e.g. Groceries,Travel"),
+    compare: str = "none",
+    month: str | None = Query(None, description="One month, YYYY-MM, to look inside it"),
+):
+    """Explore your own data freely: pick what to look at, how to slice it and
+    who to compare with. Returns a chart spec, the same numbers as a table, a
+    one-sentence takeaway, notes on the benchmarks and questions for the assistant."""
+    return _call(explorer.explore, customer_id, measure, group_by, months,
+                 _split(categories), compare, month)
+
+
+@router.get("/customers/{customer_id}/explore/transactions", tags=["explore"])
+def explore_transactions(
+    customer_id: str,
+    months: int = Query(3, ge=1, le=24),
+    categories: str | None = None,
+    month: str | None = None,
+    limit: int = Query(20, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+):
+    """The raw transactions behind an explore view, newest first."""
+    tx = _call(finance._tx, customer_id)
+    if month := explorer._valid_month(month):
+        tx = tx[tx["tx_date"].dt.strftime("%Y-%m") == month]
+    else:
+        tx = finance._last_months(tx, months)
+    cats = _split(categories)
+    if cats:
+        tx = tx[tx["category"].isin([_call(lambda _c, c=c: finance._match_category(c), customer_id)
+                                     for c in cats])]
+    tx = tx.sort_values("tx_timestamp", ascending=False)
+    page = tx.iloc[offset : offset + limit]
+    cols = ["tx_date", "category", "tx_amount_eur", "merchant_id", "balance_after_eur"]
+    rows = page[cols].assign(tx_date=page["tx_date"].dt.date.astype(str))
+    return {
+        "total": len(tx),
+        "items": rows.astype(object).where(rows.notna(), None).to_dict(orient="records"),
+    }
+
+
+@router.get("/customers/{customer_id}/export", tags=["explore"])
+def export_my_data(customer_id: str, format: Literal["csv", "json"] = "csv"):
+    """Download all of your transactions (data portability)."""
+    df = _call(explorer.export, customer_id)
+    name = f"s-pankki-my-data-{customer_id}"
+    if format == "json":
+        body, media = df.to_json(orient="records", date_format="iso"), "application/json"
+    else:
+        body, media = df.to_csv(index=False), "text/csv; charset=utf-8"
+    return Response(
+        body,
+        media_type=media,
+        headers={"Content-Disposition": f'attachment; filename="{name}.{format}"'},
+    )
+
+
+@router.get("/customers/{customer_id}/my-data", tags=["explore"])
+def my_data(customer_id: str):
+    """What data the app holds about you and how it is used (transparency)."""
+    profile = _call(finance.get_profile, customer_id)
+    tx = finance._tx(customer_id)
+    return {
+        "transactions": len(tx),
+        "first_date": tx["tx_date"].min().date().isoformat(),
+        "last_date": tx["tx_date"].max().date().isoformat(),
+        "categories": SPENDING_CATEGORIES,
+        "peer_group": profile["peer_group"],
+        "peer_count": profile["peer_count"],
+        "customers_in_dataset": int(load_transactions()["customer_id"].nunique()),
+        "open_data": opendata.source(),
     }
 
 

@@ -24,7 +24,7 @@ from typing import Any
 
 import openai
 
-from . import finance, guardrails, visuals
+from . import finance, guardrails, opendata, visuals
 from .featherless import get_llm
 
 MAX_TOOL_ROUNDS = 6
@@ -38,6 +38,8 @@ is that they understand their money better after every answer.
 
 {scope_rules}
 Facts:
+- All spending figures in the snapshot are per month. Only compare monthly \
+figures with monthly figures, never a multi-month total with a monthly average.
 - Base every number on the snapshot below or on tool results. Never guess or \
 invent figures, and never do loan maths yourself: use mortgage_calculator. If \
 you don't have the data, say so.
@@ -53,6 +55,9 @@ the data doesn't show why, say what it does show.
 month before that date.
 - "Similar customers" means customers in the same age and income group \
 ({peer_group}). Say who you compare with when you compare.
+- The Finnish average comes from Statistics Finland's Household Budget \
+Survey 2022 (spending per person, by age group). When you use it, name the \
+source and say it is an approximate match. Housing is not compared with it.
 - Merchants only have codes like MRC-RES-0042 (RES = restaurants), no names.
 {low_activity_note}
 How to answer:
@@ -62,6 +67,8 @@ more sentences. Stay under 90 words. Plain text. You may use **bold** for \
 one or two key numbers. No tables, no headings, no emojis.
 - Don't announce what you are about to do, and don't end by asking whether \
 they want more: the app shows suggested next questions by itself.
+- Check the numbers before you write. Never correct yourself in the middle \
+of an answer: the customer only sees the final text.
 - Write amounts like 1 234 € (whole euros unless cents matter).
 - Teach: explain the "why" in plain words, and explain a finance term in a \
 few words the first time you use it (for example: loan-to-value = the loan \
@@ -82,6 +89,9 @@ own line. The app draws the chart from the customer's real data:
   [[chart:peers]]                you vs similar customers, biggest differences
   [[chart:peers:Groceries]]      you vs similar customers in one category
   [[chart:mortgage]]             the customer's own mortgage application
+  [[chart:finland]]              you vs the Finnish average for your age
+  [[chart:finland:Groceries]]    the same for one category
+- explore_data shows its own chart automatically, add no tag for it.
 - mortgage_calculator shows its own chart automatically, add no tag for it.
 - Never ask whether they want a chart: if it helps, just add the tag.
 - Don't describe the chart or list every number in it. Say what it shows \
@@ -123,6 +133,38 @@ def _tool(name: str, description: str, properties: dict, required: list[str] | N
 
 
 TOOLS = [
+    _tool(
+        "explore_data",
+        "Flexible look at the customer's data, shown to them as a chart. Use it "
+        "for any question about spending by month, category, merchant or "
+        "weekday, for income, savings or balance over time, and for comparing "
+        "with similar customers or with the Finnish average (Statistics Finland).",
+        {
+            "measure": {"type": "string", "enum": ["spending", "income", "saved", "balance"]},
+            "group_by": {
+                "type": "string",
+                "enum": ["month", "category", "merchant", "weekday"],
+                "description": "Spending only. Other measures are always by month.",
+            },
+            "months": {"type": "integer", "description": "1-24, how far back. Default 3"},
+            "month": {
+                "type": "string",
+                "description": "One specific month as YYYY-MM (e.g. 2026-01), to look inside "
+                "it by category, merchant or weekday. Use this for 'what did I spend in "
+                "January' questions instead of several lookups.",
+            },
+            "categories": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Spending categories to include. Leave out for all.",
+            },
+            "compare": {
+                "type": "string",
+                "enum": ["none", "peers", "finland"],
+                "description": "Spending by month or category only.",
+            },
+        },
+    ),
     _tool(
         "get_overview",
         "Headline numbers: current balance, average monthly income and spending, "
@@ -190,7 +232,16 @@ TOOLS = [
     ),
 ]
 
+def _explore_data(customer_id: str, **kwargs) -> dict:
+    from .explore import explore
+
+    result = explore(customer_id, **kwargs)
+    return {k: result[k] for k in ("query", "summary", "table", "notes", "source", "visual",
+                                   "options")}
+
+
 _FUNCTIONS: dict[str, Callable[..., dict]] = {
+    "explore_data": _explore_data,
     "get_overview": finance.get_overview,
     "get_spending": finance.get_spending,
     "get_monthly_trend": finance.get_monthly_trend,
@@ -209,6 +260,7 @@ TOOL_LABELS = {
     "find_transactions": "Searching your transactions",
     "get_mortgage_status": "Checking your mortgage application",
     "mortgage_calculator": "Calculating a home loan estimate",
+    "explore_data": "Exploring your data",
 }
 
 # What a tool call or chart is about, for choosing follow-up suggestions.
@@ -220,6 +272,7 @@ _TOPICS = {
     "compare_to_peers": "peers",
     "get_mortgage_status": "mortgage",
     "mortgage_calculator": "mortgage",
+    "explore_data": "spending",
     "bars": "spending",
     "columns": "trend",
     "line": "trend",
@@ -227,6 +280,12 @@ _TOPICS = {
     "mortgage": "mortgage",
     "calc": "mortgage",
 }
+
+def _topic_of(visual: dict) -> str:
+    if (visual.get("explore") or {}).get("compare") == "finland":
+        return "finland"
+    return _TOPICS[visual["type"]]
+
 
 # Set to False the first time the model rejects tools, so we stop sending them.
 _tools_supported: bool | None = None
@@ -254,15 +313,43 @@ def _snapshot(customer_id: str) -> dict:
     overview = finance.get_overview(customer_id)
     insights = finance.get_insights(customer_id, limit=5)
     mortgage = finance.get_mortgage_details(customer_id)
+    national = opendata.national_spending(overview["age"])
+    from .explore import explore
+
+    finland = explore(customer_id, group_by="category", months=12, compare="finland")
     snap: dict[str, Any] = {
         "overview": {k: v for k, v in overview.items() if k not in ("customer_id", "age")},
-        "spending_last_3_months_eur": finance.get_spending(customer_id, 3)["by_category_eur"],
+        # Monthly averages everywhere, so figures can be compared with each other.
+        "avg_monthly_spending_last_3_months_eur": {
+            c: round(v / 3, 2)
+            for c, v in finance.get_spending(customer_id, 3)["by_category_eur"].items()
+        },
         "vs_similar_customers_monthly": [
             {k: i[k] for k in ("category", "you_eur", "peer_median_eur", "diff_eur",
                                "percentile")}
             for i in insights["insights"]
         ],
         "peer_group_size": insights["peer_count"],
+        # Already compared, with the direction spelled out, so the model
+        # doesn't have to work out which number is bigger.
+        "vs_finnish_average": {
+            "source": "Statistics Finland, Household Budget Survey 2022, per person, "
+            f"age group {national['age_group']}. Approximate category match.",
+            "period": "your monthly average over the last 12 months",
+            "summary": finland["summary"],
+            "by_category": [
+                {
+                    "category": cat,
+                    "you_eur": you,
+                    "finnish_average_eur": avg,
+                    "you_spend": f"{abs(diff):.0f} EUR {'MORE' if diff > 0 else 'LESS'} than average",
+                }
+                for cat, you, avg, diff in finland["table"]["rows"]
+            ],
+            "housing_not_compared": "The statistics leave out loan repayments, so the "
+            "national housing figure says little about a customer's housing payments. Do "
+            "not compare housing or total spending with the Finnish average.",
+        },
         "home_loan_basics": {
             "loan_cap_ltv": finance.LTV_LIMIT,
             "max_loan_for_their_income_eur": round(
@@ -401,6 +488,10 @@ def _pick_visuals(customer_id: str, tags: list[str], tool_visuals: list[dict]) -
     picked = [v for v in tool_visuals if v["type"] == "calc"][-1:]
     if picked:
         return picked  # the estimate card is the whole story for a what-if
+    # A chart the model deliberately explored beats a generic tag.
+    explored = [v for v in tool_visuals if v.get("explore") and "notes" in v][-1:]
+    if explored:
+        return explored
     tagged = [visuals.from_tag(customer_id, t[len("chart:"):])
               for t in tags if t.lower().startswith("chart:")]
     tagged = [v for v in tagged if v]
@@ -509,7 +600,7 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                     yield {"type": "error", "message": "The assistant gave an empty answer."}
                     return
                 shown = _pick_visuals(customer_id, tags, tool_visuals)
-                topics = [_TOPICS[v["type"]] for v in shown] + [
+                topics = [_topic_of(v) for v in shown] + [
                     _TOPICS[t] for t in tools_used if t in _TOPICS
                 ]
                 yield {
@@ -555,7 +646,11 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                     {
                         "role": "tool",
                         "tool_call_id": ids[i],
-                        "content": json.dumps(result, ensure_ascii=False, default=str),
+                        # The chart goes to the app, not back to the model.
+                        "content": json.dumps(
+                            {k: v for k, v in result.items() if k not in ("visual", "options")},
+                            ensure_ascii=False, default=str,
+                        ),
                     }
                 )
         yield {"type": "error", "message": "Too many lookups, try a simpler question."}

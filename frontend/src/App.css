@@ -738,3 +738,228 @@ input:focus-visible {
     color: var(--muted);
     text-align: center;
 }
+
+/* Explore */
+.explore header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.control-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+/* Chips wrap, so every option is visible without scrolling sideways. */
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    flex: none;
+    min-height: 40px;
+    padding: 8px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface);
+    font-size: 0.88rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chip.active {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: var(--brand-text);
+}
+
+.result {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: opacity 0.15s;
+}
+
+.result.loading {
+    opacity: 0.55;
+}
+
+.takeaway {
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.view-toggle {
+    align-self: flex-start;
+    display: inline-flex;
+    padding: 3px;
+    border-radius: 999px;
+    background: var(--bg);
+}
+
+.view-toggle button {
+    min-height: 36px;
+    padding: 6px 16px;
+    border: none;
+    border-radius: 999px;
+    background: none;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--muted);
+}
+
+.view-toggle button[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+}
+
+.more-questions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.data-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    color: var(--muted);
+    padding: 6px 8px 6px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: bottom;
+}
+
+.data-table td {
+    padding: 8px 8px 8px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table .num,
+.data-table th:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.tx-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 16px;
+}
+
+.tx-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.tx-list li:last-child {
+    border-bottom: none;
+}
+
+.tx-list li > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.tx-category {
+    font-weight: 600;
+}
+
+.tx-amount {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.your-data {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-top: 4px solid var(--brand);
+}
+
+.download-row,
+.button-row {
+    display: flex;
+    gap: 8px;
+}
+
+.download-row .btn-secondary,
+.button-row .btn-secondary {
+    flex: 1;
+    margin-top: 0;
+    text-align: center;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.button-row {
+    margin-top: 10px;
+}
+
+.data-notes {
+    margin: 0;
+    padding-left: 1.1em;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+}
+
+.data-notes strong {
+    color: var(--text);
+}
+
+.data-notes a {
+    color: var(--brand);
+}
+
+/* Suggested question with the reason it was picked */
+.starter {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: 18px;
+}
+
+.starter-why {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--muted);
+}

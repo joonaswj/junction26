@@ -4,6 +4,7 @@ import type {
     CalcVisual,
     ColumnsVisual,
     CompareVisual,
+    ExploreQuery,
     LineVisual,
     MortgageVisual,
     Visual as VisualSpec,
@@ -11,19 +12,38 @@ import type {
 import { formatEur, formatMonth, formatMonthYear, formatPct } from "../format";
 import "./charts.css";
 
-/** Draws one chart spec from the backend. Used on the overview and in chat. */
-export default function Visual({ spec }: { spec: VisualSpec }) {
+type Actions = {
+    /** Send this question to the assistant. */
+    onAsk?: (question: string) => void;
+    /** Open this view in Explore. */
+    onExplore?: (query: ExploreQuery) => void;
+    /** The question for the whole chart. Defaults to one that fits the chart. */
+    question?: string;
+    /** Inside Explore the chart is already the explore view. */
+    hideExploreButton?: boolean;
+    /** In a chat answer the chart's own question was just asked. */
+    hideAskButton?: boolean;
+};
+
+type Props = Actions & { spec: VisualSpec };
+
+/**
+ * Draws one chart spec from the backend. Used on the overview, in Explore
+ * and in chat. Every chart is a starting point: tap a bar or a month to ask
+ * the assistant about it or to look closer in Explore.
+ */
+export default function Visual({ spec, ...actions }: Props) {
     switch (spec.type) {
         case "bars":
-            return <Bars spec={spec} />;
+            return <Bars spec={spec} {...actions} />;
         case "columns":
-            return <Columns spec={spec} />;
+            return <Columns spec={spec} {...actions} />;
         case "line":
-            return <Line spec={spec} />;
+            return <Line spec={spec} {...actions} />;
         case "compare":
-            return <Compare spec={spec} />;
+            return <Compare spec={spec} {...actions} />;
         case "mortgage":
-            return <Mortgage spec={spec} />;
+            return <Mortgage spec={spec} {...actions} />;
         case "calc":
             return <Calc spec={spec} />;
         default:
@@ -43,9 +63,124 @@ function Figure(props: { title: string; subtitle?: ReactNode; children: ReactNod
     );
 }
 
-/* Horizontal bars: one value per category, every bar labelled. */
-function Bars({ spec }: { spec: BarsVisual }) {
+type Action = { text: string; run: () => void };
+
+/** What the customer tapped, with what they can do next. */
+function Focus(props: { label: ReactNode; ask?: Action; drill?: Action; onClose: () => void }) {
+    return (
+        <div className="viz-focus">
+            <div className="viz-focus-head">
+                <span>{props.label}</span>
+                <button type="button" className="viz-close" onClick={props.onClose} aria-label="Close">
+                    ×
+                </button>
+            </div>
+            <div className="viz-focus-actions">
+                {props.ask && (
+                    <button type="button" className="viz-action primary" onClick={props.ask.run}>
+                        <AskIcon />
+                        {props.ask.text}
+                    </button>
+                )}
+                {props.drill && (
+                    <button type="button" className="viz-action" onClick={props.drill.run}>
+                        <ExploreIcon />
+                        {props.drill.text}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/** Whole-chart actions and the small print about benchmarks. */
+function Footer(props: Actions & { spec: VisualSpec }) {
+    const { spec, onExplore } = props;
+    const [open, setOpen] = useState(false);
+    const link = props.hideExploreButton ? undefined : spec.explore;
+    const onAsk = props.hideAskButton ? undefined : props.onAsk;
+    const question = props.question;
+    return (
+        <>
+            {((onAsk && question) || (onExplore && link)) && (
+                <div className="viz-actions">
+                    {onAsk && question && (
+                        <button type="button" className="viz-action primary" onClick={() => onAsk(question)}>
+                            <AskIcon />
+                            Ask about this
+                        </button>
+                    )}
+                    {onExplore && link && (
+                        <button type="button" className="viz-action" onClick={() => onExplore(link)}>
+                            <ExploreIcon />
+                            Explore
+                        </button>
+                    )}
+                </div>
+            )}
+            {!!spec.notes?.length && (
+                <div className="viz-notes">
+                    <button
+                        type="button"
+                        className="viz-notes-toggle"
+                        onClick={() => setOpen(!open)}
+                        aria-expanded={open}
+                    >
+                        <span aria-hidden="true">{open ? "−" : "+"}</span>
+                        Where do these numbers come from?
+                    </button>
+                    {open && (
+                        <ul>
+                            {spec.notes.map((n) => (
+                                <li key={n}>{n}</li>
+                            ))}
+                            {spec.source && (
+                                <li>
+                                    Source:{" "}
+                                    <a href={spec.source.url} target="_blank" rel="noreferrer">
+                                        {spec.source.source}, table {spec.source.table.split(":")[0]}
+                                    </a>{" "}
+                                    ({spec.source.license}).
+                                </li>
+                            )}
+                        </ul>
+                    )}
+                </div>
+            )}
+        </>
+    );
+}
+
+const lower = (s: string) => s.toLowerCase();
+
+/* Horizontal bars: one value per row, every bar labelled. Tap a row. */
+function Bars({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: BarsVisual }) {
+    const [selected, setSelected] = useState<string | null>(null);
     const max = Math.max(...spec.items.map((i) => i.value), 1);
+    const kind = spec.explore?.group_by; // category | merchant | weekday
+    const month = spec.explore?.month ?? null;
+    const interactive = (kind === "category" || kind === "merchant") && !!(onAsk || onExplore);
+    const item = spec.items.find((i) => i.label === selected);
+    const when = month ? ` in ${formatMonthYear(month)}` : "";
+
+    let drill: Action | undefined;
+    if (item && onExplore && kind === "category") {
+        drill = month
+            ? {
+                  text: "See the merchants",
+                  run: () => onExplore({ month, group_by: "merchant", categories: [item.label] }),
+              }
+            : {
+                  text: "See month by month",
+                  run: () =>
+                      onExplore({
+                          group_by: "month",
+                          categories: [item.label],
+                          months: Math.max(spec.explore?.months ?? 6, 6),
+                      }),
+              };
+    }
+
     return (
         <Figure
             title={spec.title}
@@ -56,35 +191,97 @@ function Bars({ spec }: { spec: BarsVisual }) {
             }
         >
             <ul className="viz-bars">
-                {spec.items.map((item) => (
-                    <li key={item.label}>
-                        <div className="viz-row">
-                            <span>{item.label}</span>
-                            <span className="viz-value">
-                                {formatEur(item.value)}
-                                <span className="viz-share">
-                                    {Math.round((item.value / spec.total) * 100)}&nbsp;%
+                {spec.items.map((row) => {
+                    const body = (
+                        <>
+                            <div className="viz-row">
+                                <span>{row.label}</span>
+                                <span className="viz-value">
+                                    {formatEur(row.value)}
+                                    {spec.show_share !== false && (
+                                        <span className="viz-share">
+                                            {Math.round((row.value / spec.total) * 100)}&nbsp;%
+                                        </span>
+                                    )}
                                 </span>
-                            </span>
-                        </div>
-                        <div className="viz-track">
-                            <div
-                                className="viz-fill s1"
-                                style={{ width: `${(item.value / max) * 100}%` }}
-                            />
-                        </div>
-                    </li>
-                ))}
+                            </div>
+                            <div className="viz-track">
+                                <div className="viz-fill s1" style={{ width: `${(row.value / max) * 100}%` }} />
+                            </div>
+                        </>
+                    );
+                    return (
+                        <li key={row.label} className={row.label === selected ? "selected" : ""}>
+                            {interactive ? (
+                                <button
+                                    type="button"
+                                    className="viz-tap"
+                                    onClick={() => setSelected(row.label === selected ? null : row.label)}
+                                    aria-pressed={row.label === selected}
+                                >
+                                    {body}
+                                </button>
+                            ) : (
+                                body
+                            )}
+                            {row.label === selected && item && (
+                <Focus
+                    label={
+                        <>
+                            <strong>{item.label}</strong> · {formatEur(item.value)}
+                        </>
+                    }
+                    onClose={() => setSelected(null)}
+                    ask={
+                        onAsk && {
+                            text: "Ask about this",
+                            run: () =>
+                                onAsk(
+                                    kind === "merchant"
+                                        ? `What did I buy from ${item.label}${when}?`
+                                        : `Tell me about my ${lower(item.label)} spending${when}.`,
+                                ),
+                        }
+                    }
+                    drill={drill}
+                />
+                            )}
+                        </li>
+                    );
+                })}
             </ul>
+            {interactive && !item && <p className="viz-hint">Tap a row to ask about it or look closer.</p>}
+            <Footer spec={spec} onAsk={onAsk} onExplore={onExplore} hideExploreButton={hideExploreButton} hideAskButton={hideAskButton} question={question ?? "Where does my money go?"} />
         </Figure>
     );
 }
 
-/* Columns over months, 1-2 series. Tap a month to read its values. */
-function Columns({ spec }: { spec: ColumnsVisual }) {
+/* Columns over months, 1-2 series. Tap a month to read it, ask or look inside. */
+function Columns({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: ColumnsVisual }) {
     const [selected, setSelected] = useState(spec.labels.length - 1);
-    const max = Math.max(...spec.series.flatMap((s) => s.values), 1);
+    const [touched, setTouched] = useState(false);
+    const at = Math.min(selected, spec.labels.length - 1);
+    const all = spec.series.flatMap((s) => s.values);
+    const max = Math.max(...all, 0);
+    const min = Math.min(...all, 0);
+    const range = max - min || 1;
+    const zero = (-min / range) * 100; // baseline position from the bottom, %
     const single = spec.series.length === 1;
+    const colors = spec.colors ?? ["s1", "s2"];
+    const label = spec.labels[at];
+    const monthName = formatMonthYear(label);
+    const cats = spec.explore?.categories;
+    const isSpending = !spec.explore?.measure || spec.explore.measure === "spending";
+
+    const pick = (i: number) => {
+        setSelected(i);
+        setTouched(true);
+    };
+
+    let askText = `What did I spend on in ${monthName}?`;
+    if (!isSpending) askText = `What happened to my income and spending in ${monthName}?`;
+    else if (cats?.length) askText = `What did I spend on ${cats.map(lower).join(" and ")} in ${monthName}?`;
+
     return (
         <Figure
             title={spec.title}
@@ -100,49 +297,84 @@ function Columns({ spec }: { spec: ColumnsVisual }) {
         >
             {/* The readout doubles as the legend: swatch + name + value. */}
             <div className={`viz-readout${single ? "" : " multi"}`} aria-live="polite">
-                <span className="viz-readout-month">{formatMonthYear(spec.labels[selected])}</span>
+                <span className="viz-readout-month">{monthName}</span>
                 {spec.series.map((s, si) => (
                     <span key={s.name} className="viz-key">
-                        <i className={`viz-swatch s${si + 1}`} />
+                        <i className={`viz-swatch ${colors[si] ?? "s2"}`} />
                         {!single && `${s.name} `}
-                        <strong>{formatEur(s.values[selected])}</strong>
+                        <strong>{formatEur(s.values[at])}</strong>
                     </span>
                 ))}
             </div>
             <div className="viz-columns">
-                {spec.labels.map((label, i) => (
+                {spec.labels.map((month, i) => (
                     <button
-                        key={label}
+                        key={month}
                         type="button"
-                        className={`viz-month${i === selected ? " selected" : ""}`}
-                        onClick={() => setSelected(i)}
-                        onMouseEnter={() => setSelected(i)}
-                        aria-label={`${formatMonthYear(label)}: ${spec.series
+                        className={`viz-month${i === at ? " selected" : ""}`}
+                        onClick={() => pick(i)}
+                        aria-label={`${formatMonthYear(month)}: ${spec.series
                             .map((s) => `${s.name} ${formatEur(s.values[i])}`)
                             .join(", ")}`}
                     >
                         <span className="viz-plot">
-                            {spec.series.map((s, si) => (
-                                <span
-                                    key={s.name}
-                                    className={`viz-column s${si + 1}`}
-                                    style={{ height: `${Math.max((s.values[i] / max) * 100, 1)}%` }}
-                                />
-                            ))}
+                            {spec.series.map((s, si) => {
+                                const v = s.values[i];
+                                const h = Math.max((Math.abs(v) / range) * 100, 0.8);
+                                return (
+                                    <span key={s.name} className="viz-slot">
+                                        <span
+                                            className={`viz-column ${colors[si] ?? "s2"}${v < 0 ? " negative" : ""}`}
+                                            style={{ height: `${h}%`, bottom: `${v < 0 ? zero - h : zero}%` }}
+                                        />
+                                    </span>
+                                );
+                            })}
+                            {min < 0 && <span className="viz-zero" style={{ bottom: `${zero}%` }} />}
                         </span>
-                        <span className="viz-tick">{formatMonth(label)}</span>
+                        <span className="viz-tick">{formatMonth(month)}</span>
                     </button>
                 ))}
             </div>
-            <p className="viz-hint">Tap a month to see its numbers.</p>
+            {!touched && <p className="viz-hint after-ticks">Tap a month to see its numbers.</p>}
+            {touched && (onAsk || onExplore) && (
+                <div className="after-ticks">
+                    <Focus
+                        label={<strong>{monthName}</strong>}
+                        onClose={() => setTouched(false)}
+                        ask={onAsk && { text: "Ask about this month", run: () => onAsk(askText) }}
+                        drill={
+                            onExplore && {
+                                text: `Look inside ${formatMonth(label)}`,
+                                // One category has nothing to split by category: show its merchants.
+                                run: () =>
+                                    onExplore({
+                                        month: label,
+                                        group_by: cats?.length === 1 ? "merchant" : "category",
+                                        categories: cats,
+                                    }),
+                            }
+                        }
+                    />
+                </div>
+            )}
+            <Footer
+                spec={spec}
+                onAsk={onAsk}
+                onExplore={onExplore}
+                hideExploreButton={hideExploreButton}
+                hideAskButton={hideAskButton}
+                question={question ?? `How has my ${lower(spec.title.replace(" by month", ""))} changed?`}
+            />
         </Figure>
     );
 }
 
 /* One value over months (balance). Tap a month to read its value. */
-function Line({ spec }: { spec: LineVisual }) {
+function Line({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: LineVisual }) {
     const n = spec.values.length;
     const [selected, setSelected] = useState(n - 1);
+    const at = Math.min(selected, n - 1);
     const lo = Math.min(...spec.values);
     const hi = Math.max(...spec.values);
     const pad = (hi - lo || 1) * 0.15;
@@ -155,10 +387,10 @@ function Line({ spec }: { spec: LineVisual }) {
     return (
         <Figure title={spec.title} subtitle={spec.subtitle}>
             <div className="viz-readout" aria-live="polite">
-                <span className="viz-readout-month">{formatMonthYear(spec.labels[selected])}</span>
+                <span className="viz-readout-month">{formatMonthYear(spec.labels[at])}</span>
                 <span className="viz-key">
                     <i className="viz-swatch s1" />
-                    <strong>{formatEur(spec.values[selected])}</strong>
+                    <strong>{formatEur(spec.values[at])}</strong>
                 </span>
             </div>
             <div className="viz-line">
@@ -166,17 +398,13 @@ function Line({ spec }: { spec: LineVisual }) {
                     <polygon className="viz-area" points={`0,100 ${points} 100,100`} />
                     <polyline className="viz-stroke" points={points} />
                 </svg>
-                <span
-                    className="viz-dot"
-                    style={{ left: `${x(selected)}%`, top: `${y(spec.values[selected])}%` }}
-                />
+                <span className="viz-dot" style={{ left: `${x(at)}%`, top: `${y(spec.values[at])}%` }} />
                 <div className="viz-hits">
                     {spec.labels.map((label, i) => (
                         <button
                             key={label}
                             type="button"
                             onClick={() => setSelected(i)}
-                            onMouseEnter={() => setSelected(i)}
                             aria-label={`${formatMonthYear(label)}: ${formatEur(spec.values[i])}`}
                         />
                     ))}
@@ -187,43 +415,118 @@ function Line({ spec }: { spec: LineVisual }) {
                 <span>{formatMonthYear(spec.labels[n - 1])}</span>
             </div>
             <p className="viz-hint">
-                {change >= 0 ? "Up" : "Down"} {formatEur(Math.abs(change))} over the period. Tap the
-                chart to see a month.
+                {change >= 0 ? "Up" : "Down"} {formatEur(Math.abs(change))} over the period. Tap the chart to see a
+                month.
             </p>
+            <Footer spec={spec} onAsk={onAsk} onExplore={onExplore} hideExploreButton={hideExploreButton} hideAskButton={hideAskButton} question={question ?? "Is my balance growing?"} />
         </Figure>
     );
 }
 
-/* You vs similar customers: you in green, peers in grey. */
-function Compare({ spec }: { spec: CompareVisual }) {
+/* You vs a benchmark: you in green, similar customers in grey, Finland in blue. */
+function Compare({ spec, onAsk, onExplore, question, hideExploreButton, hideAskButton }: Actions & { spec: CompareVisual }) {
+    const [selected, setSelected] = useState<string | null>(null);
     const max = Math.max(...spec.items.flatMap((i) => [i.you, i.peers]), 1);
+    const cls = spec.peer_class ?? "peer";
+    const finland = spec.explore?.compare === "finland" || cls === "s2";
+    const who = finland ? "the Finnish average" : "others";
+    const interactive = !!(onAsk || onExplore);
+    const item = spec.items.find((i) => i.label === selected);
+
     return (
         <Figure title={spec.title} subtitle={spec.subtitle}>
-            <div className="viz-legend">
-                <span className="viz-key">
-                    <i className="viz-swatch s1" />
-                    {spec.you_label}
-                </span>
-                <span className="viz-key">
-                    <i className="viz-swatch peer" />
-                    {spec.peer_label}
-                </span>
-            </div>
-            <ul className="viz-compare">
-                {spec.items.map((item) => (
-                    <li key={item.label}>
-                        <span className="viz-compare-label">{item.label}</span>
-                        <CompareBar className="s1" value={item.you} max={max} name={spec.you_label} />
-                        <CompareBar
-                            className="peer"
-                            value={item.peers}
-                            max={max}
-                            name={spec.peer_label}
-                        />
-                    </li>
-                ))}
-            </ul>
+            {spec.items.length === 0 ? (
+                <p className="viz-empty">There is no fair benchmark for this selection.</p>
+            ) : (
+                <>
+                    <div className="viz-legend">
+                        <span className="viz-key">
+                            <i className="viz-swatch s1" />
+                            {spec.you_label}
+                        </span>
+                        <span className="viz-key">
+                            <i className={`viz-swatch ${cls}`} />
+                            {spec.peer_label}
+                        </span>
+                    </div>
+                    <ul className="viz-compare">
+                        {spec.items.map((row) => {
+                            const body = (
+                                <>
+                                    <span className="viz-compare-label">{row.label}</span>
+                                    <CompareBar className="s1" value={row.you} max={max} name={spec.you_label} />
+                                    <CompareBar className={cls} value={row.peers} max={max} name={spec.peer_label} />
+                                </>
+                            );
+                            return (
+                                <li key={row.label} className={row.label === selected ? "selected" : ""}>
+                                    {interactive ? (
+                                        <button
+                                            type="button"
+                                            className="viz-tap"
+                                            onClick={() => setSelected(row.label === selected ? null : row.label)}
+                                            aria-pressed={row.label === selected}
+                                        >
+                                            {body}
+                                        </button>
+                                    ) : (
+                                        body
+                                    )}
+                                    {row.label === selected && item && (
+                <Focus
+                    label={
+                        <>
+                            <strong>{item.label}</strong> · {formatEur(Math.abs(item.you - item.peers))}{" "}
+                            {item.you > item.peers ? "more" : "less"} a month
+                        </>
+                    }
+                    onClose={() => setSelected(null)}
+                    ask={
+                        onAsk && {
+                            text: "Ask why",
+                            run: () =>
+                                onAsk(
+                                    `Why do I spend ${item.you > item.peers ? "more" : "less"} on ${lower(item.label)} than ${who}?`,
+                                ),
+                        }
+                    }
+                    drill={
+                        onExplore && {
+                            text: "See month by month",
+                            run: () =>
+                                onExplore({
+                                    group_by: "month",
+                                    categories: [item.label],
+                                    months: 12,
+                                    compare: finland ? "finland" : "peers",
+                                }),
+                        }
+                    }
+                />
+            )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                </>
+            )}
             {spec.percentile !== undefined && <Position percentile={spec.percentile} />}
+            {interactive && !item && spec.items.length > 1 && (
+                <p className="viz-hint">Tap a row to ask about it or look closer.</p>
+            )}
+            <Footer
+                spec={spec}
+                onAsk={onAsk}
+                onExplore={onExplore}
+                hideExploreButton={hideExploreButton}
+                hideAskButton={hideAskButton}
+                question={
+                    question ??
+                    (finland
+                        ? "How do I compare with the Finnish average for my age?"
+                        : "How do I compare with similar customers?")
+                }
+            />
         </Figure>
     );
 }
@@ -327,7 +630,7 @@ function Status(props: { ok: boolean; okText: string; badText: string }) {
     );
 }
 
-function Mortgage({ spec }: { spec: MortgageVisual }) {
+function Mortgage({ spec, onAsk, question, hideAskButton }: Actions & { spec: MortgageVisual }) {
     const approved = spec.decision === "approved";
     return (
         <Figure
@@ -340,9 +643,7 @@ function Mortgage({ spec }: { spec: MortgageVisual }) {
         >
             <div className="viz-decision">
                 <Status ok={approved} okText="Approved" badText="Not approved" />
-                <span className="viz-hint">
-                    {spec.approved_pct}&nbsp;% of applications were approved.
-                </span>
+                <span className="viz-hint">{spec.approved_pct}&nbsp;% of applications were approved.</span>
             </div>
             {spec.reason && (
                 <div className="viz-reason">
@@ -355,6 +656,15 @@ function Mortgage({ spec }: { spec: MortgageVisual }) {
             )}
             <PriceSplit price={spec.property_price} loan={spec.loan} downPayment={spec.down_payment} />
             <LtvMeter ltv={spec.ltv} limit={spec.ltv_limit} typical={spec.ltv_typical_approved} />
+            <Footer
+                spec={spec}
+                onAsk={onAsk}
+                hideAskButton={hideAskButton}
+                question={
+                    question ??
+                    (approved ? "What would my monthly loan payment be?" : "What could improve my chances next time?")
+                }
+            />
         </Figure>
     );
 }
@@ -387,8 +697,8 @@ function Calc({ spec }: { spec: CalcVisual }) {
                 <li>
                     <Status ok={incomeOk} okText="Income is enough" badText="Income is too low" />
                     <span>
-                        You earn about <strong>{formatEur(spec.income)}</strong> a month. The bank
-                        needs about <strong>{formatEur(spec.required_income)}</strong> for this loan.
+                        You earn about <strong>{formatEur(spec.income)}</strong> a month. The bank needs about{" "}
+                        <strong>{formatEur(spec.required_income)}</strong> for this loan.
                     </span>
                 </li>
                 <li>
@@ -402,8 +712,32 @@ function Calc({ spec }: { spec: CalcVisual }) {
             </ul>
             <p className="viz-hint">
                 With your income, a home up to about{" "}
-                <strong>{formatEur(Math.round(spec.max_price_for_income / 1000) * 1000)}</strong> could fit. {spec.note}
+                <strong>{formatEur(Math.round(spec.max_price_for_income / 1000) * 1000)}</strong> could fit.{" "}
+                {spec.note}
             </p>
         </Figure>
+    );
+}
+
+function AskIcon() {
+    return (
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path
+                d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1z"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
+
+function ExploreIcon() {
+    return (
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="m16 16 4.5 4.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
     );
 }
