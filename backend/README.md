@@ -542,13 +542,15 @@ In Python: `from junction26.insights import get_insights, get_comparison`. The f
 
 The chatbot runs on [Featherless](https://featherless.ai) (OpenAI-compatible API), configured in `junction26/featherless.py`. The model gets a short snapshot of the logged-in customer's numbers, and can call functions in `junction26/finance.py` (overview, spending, trend, peer comparison, transaction search, mortgage status, mortgage calculator) for more detail. The server fills in `customer_id`, so the model can only see that one customer's data. If a model doesn't support tool calling, the chat automatically falls back to answering from the snapshot.
 
-Setup: put your key in `backend/.env` (gitignored, never commit it), then restart the backend:
+Setup: put your key in the repo-root `.env` (gitignored, never commit it), then restart the backend:
 
 ```
 FEATHERLESS_API_KEY=...
 # optional, default deepseek-ai/DeepSeek-V4-Flash (supports tool calling)
 FEATHERLESS_MODEL=deepseek-ai/DeepSeek-V4-Flash
 ```
+
+`JUNCTION_CHAT_MODEL` overrides the model for whichever provider is picked, which is what you want when `OPENAI_BASE_URL` points at a non-OpenAI host (for example Featherless). If the network drops IPv6 traffic, requests stall for tens of seconds before falling back to IPv4; the client forces IPv4 by default, and `JUNCTION_FORCE_IPV4=0` turns that off.
 
 Check that the key works: `uv run python -m junction26.featherless` (in `backend`). If only `OPENAI_API_KEY` is set, OpenAI is used instead.
 

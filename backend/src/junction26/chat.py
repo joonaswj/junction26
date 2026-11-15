@@ -710,7 +710,9 @@ def stream_chat(customer_id: str, history: list[dict], llm=None) -> Iterator[dic
                 )
         yield {"type": "error", "message": "Too many lookups, try a simpler question."}
     except openai.AuthenticationError:
-        yield {"type": "error", "message": "The LLM API key is invalid. Check backend/.env."}
+        yield {"type": "error", "message": "The LLM API key is invalid. Check .env."}
+    except openai.APITimeoutError:
+        yield {"type": "error", "message": "The assistant timed out. Check your network and try again."}
     except openai.APIError as e:
         yield {"type": "error", "message": f"The assistant is unavailable: {e}"}
 

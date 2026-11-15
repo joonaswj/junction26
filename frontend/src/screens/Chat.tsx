@@ -38,7 +38,7 @@ export default function Chat({ customerId, pending, onExplore, contextVersion }:
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState("");
     const [streaming, setStreaming] = useState<Streaming | null>(null);
-    const [failed, setFailed] = useState(false);
+    const [failed, setFailed] = useState<string | null>(null);
     const [starters, setStarters] = useState(FALLBACK_STARTERS);
     const [maxChars, setMaxChars] = useState(600);
     const endRef = useRef<HTMLDivElement>(null);
@@ -75,7 +75,7 @@ export default function Chat({ customerId, pending, onExplore, contextVersion }:
             if (busy.current) return;
             busy.current = true;
             setMessages(history);
-            setFailed(false);
+            setFailed(null);
             setStreaming({ text: "", status: "Thinking" });
             try {
                 const reply = await streamChat(customerId, history, {
@@ -93,8 +93,8 @@ export default function Chat({ customerId, pending, onExplore, contextVersion }:
                         guard: reply.guard,
                     },
                 ]);
-            } catch {
-                setFailed(true);
+            } catch (err) {
+                setFailed(err instanceof Error ? err.message : "Something went wrong.");
             } finally {
                 setStreaming(null);
                 busy.current = false;
@@ -128,7 +128,7 @@ export default function Chat({ customerId, pending, onExplore, contextVersion }:
 
     function newChat() {
         setMessages([]);
-        setFailed(false);
+        setFailed(null);
     }
 
     const waiting = streaming !== null;
@@ -240,7 +240,7 @@ export default function Chat({ customerId, pending, onExplore, contextVersion }:
 
                 {failed && (
                     <div className="chat-error" role="alert">
-                        <p>Sorry, I couldn't answer just now.</p>
+                        <p>{failed}</p>
                         <button className="link-button" onClick={() => ask(messages)}>
                             Try again
                         </button>

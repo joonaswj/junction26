@@ -2,6 +2,30 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Install on an iPhone home screen (PWA)
+
+The app ships a web app manifest and Apple meta tags, so it can be added to an
+iOS home screen and launched full-screen without browser chrome.
+
+1. Put the phone on the same Wi-Fi as the dev machine.
+2. Serve the app on all interfaces, either:
+   - `npm run dev -- --host` (port 5173), or
+   - `npm run build` and run the backend on `0.0.0.0:8000`, which serves `dist/`.
+3. Open `http://<your-lan-ip>:<port>` in **Safari** (Chrome on iOS cannot add to
+   the home screen).
+4. Share → **Add to Home Screen**.
+
+Icons are generated from the brand colour by `scripts/generate-icons.py`
+(requires Pillow). Re-run it after changing `--brand` in `src/index.css`:
+
+```bash
+python3 scripts/generate-icons.py
+```
+
+Note: iOS only registers a service worker over HTTPS, so offline caching needs a
+tunnel (e.g. `cloudflared`) or a real certificate. Add-to-Home-Screen itself
+works over plain HTTP on a LAN IP.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
